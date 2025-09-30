@@ -17,9 +17,15 @@ You are a senior full-stack pair programmer. Build **MouseAlerts**, a mobile-fir
   - Web Push (VAPID) required.
   - Email via SendGrid (stub env + adapter).
   - SMS via Twilio (stub env + adapter).
-- **Auth:** Email magic link (passwordless). (Accept a simple code-by-email flow for MVP.)
+- **Auth:** SMS magic link (passwordless). Mobile-first authentication via SMS for Disney families.
 - **Payments:** Stripe subscriptions (Free, Premium, Family).
 - **AI:** LLM function-calling endpoint that converts NL prompt → alert specs; use light model placeholder and deterministic parsers (Chrono/Duckling or date-fns/chrono-node).
+- **Testing:** 
+  - Backend: pytest, pytest-asyncio, pytest-cov, factory-boy
+  - Frontend: Jest, React Testing Library, Playwright (E2E)
+  - Integration: Docker test containers, mock services
+  - Performance: locust, k6 load testing
+  - Security: bandit, safety, OWASP ZAP
 
 ## Repository Layout
 Create a monorepo:
@@ -46,8 +52,23 @@ service-worker.js
 docker-compose.yml        # Postgres, Redis, api, web
 fly.toml (placeholder)
 /tests
-api/
-e2e/
+api/                        # Backend unit and integration tests
+  test_auth.py              # Authentication tests
+  test_alerts.py           # Alert CRUD tests
+  test_services.py          # Service layer tests
+  conftest.py              # Pytest fixtures
+  factories.py              # Factory-boy test data
+e2e/                       # End-to-end tests
+  auth_flow.spec.ts        # Authentication E2E
+  alert_creation.spec.ts   # Alert creation E2E
+  payment_flow.spec.ts     # Payment E2E
+  mobile_pwa.spec.ts       # Mobile PWA testing
+performance/               # Performance and load tests
+  load_test.py            # Locust load testing
+  stress_test.py          # Stress testing scenarios
+security/                  # Security testing
+  security_scan.py        # Security vulnerability tests
+  auth_security.py        # Authentication security tests
 README.md
 
 ## ENV & Config
@@ -98,13 +119,33 @@ Implement these tables with Alembic migrations:
 Implement versioned routes under `/api`:
 
 - `GET /health` → `{status:"ok", version}`
-- `POST /auth/magic-link` → send login code email; `POST /auth/verify` → issue JWT
+- `POST /auth/magic-link` → send login link via SMS; `GET /auth/verify?token=xyz` → issue JWT
 - `GET /me` → current user
 - `POST /alerts` (create), `GET /alerts`, `PATCH /alerts/{id}`, `DELETE /alerts/{id}`
 - `GET /admin/runs?limit=100` → recent watcher runs (admin only)
 - `POST /nlu/parse` → NL text → JSON spec + ranked venue suggestions + upsell options
 - `POST /push/subscribe` → store Web Push subscription for user
 - `POST /billing/stripe/webhook` → update subscriptions on events
+
+### SMS Magic Link Authentication
+**Mobile-first passwordless authentication via SMS for Disney families:**
+
+- **Flow**: User enters phone → SMS with magic link → Click link → Logged in
+- **Security**: 15-minute expiration, single-use tokens, rate limiting
+- **UX**: Faster than email, higher engagement, mobile-optimized
+- **Cost**: ~$0.01-0.05 per SMS (worth it for Disney family demographic)
+- **Implementation**: Twilio SMS service with secure token generation
+
+**API Endpoints:**
+- `POST /auth/magic-link` → `{"phone": "+1234567890"}` → Send SMS with magic link
+- `GET /auth/verify?token=abc123` → Validate token → Issue JWT session
+- `POST /auth/logout` → Invalidate JWT session
+
+**SMS Template:**
+```
+Your MouseAlerts login link: https://mousealerts.app/auth/verify?token=abc123
+Expires in 15 minutes. Reply STOP to opt out.
+```
 
 ### Business Rules
 - **De-dupe:** For a given user, do not send duplicate notifications for the same `(venue, date, time_window)` more than once / 24h.
@@ -315,7 +356,7 @@ Begin by scaffolding the repo structure, env, and Docker. Then implement Phase 1
   - [ ] Test rate limiting and anti-bot measures
 - [ ] **API Endpoints**
   - [ ] Health check endpoint
-  - [ ] Authentication endpoints (`/auth/magic-link`, `/auth/verify`)
+  - [ ] SMS magic link endpoints (`/auth/magic-link`, `/auth/verify`)
   - [ ] User profile endpoint (`/me`)
   - [ ] Alert CRUD endpoints (`/alerts`)
   - [ ] Admin endpoints (`/admin/runs`)
@@ -336,7 +377,7 @@ Begin by scaffolding the repo structure, env, and Docker. Then implement Phase 1
   - [ ] SMS via Twilio (stubbed)
   - [ ] Deep linking to Disney's site
 - [ ] **Frontend (Next.js)**
-  - [ ] Authentication flow (magic link)
+  - [ ] SMS magic link authentication flow
   - [ ] Alert creation form
   - [ ] Alert list and management
   - [ ] Basic responsive design
@@ -420,6 +461,122 @@ Begin by scaffolding the repo structure, env, and Docker. Then implement Phase 1
   - [ ] User retention tracking
   - [ ] Conversion rate monitoring
   - [ ] Revenue analytics
+
+## 🧪 Testing Strategy
+
+### Unit Testing
+- [ ] **Backend API Tests**
+  - [ ] Authentication endpoints (magic link, verify, logout)
+  - [ ] Alert CRUD operations
+  - [ ] User profile management
+  - [ ] Admin endpoints
+  - [ ] Rate limiting functionality
+  - [ ] Error handling and edge cases
+- [ ] **Service Layer Tests**
+  - [ ] SMS service (Twilio integration)
+  - [ ] Email service (SendGrid integration)
+  - [ ] Push notification service
+  - [ ] Disney API fetcher
+  - [ ] De-duplication logic
+  - [ ] Notification fan-out
+- [ ] **Database Tests**
+  - [ ] Model relationships and constraints
+  - [ ] Migration testing
+  - [ ] Data integrity checks
+  - [ ] Performance queries
+- [ ] **Frontend Component Tests**
+  - [ ] Authentication flow components
+  - [ ] Alert creation and management
+  - [ ] Dashboard functionality
+  - [ ] Form validation
+  - [ ] Error handling
+
+### Integration Testing
+- [ ] **API Integration Tests**
+  - [ ] End-to-end authentication flow
+  - [ ] Alert creation → notification pipeline
+  - [ ] Payment processing with Stripe
+  - [ ] Webhook handling
+  - [ ] Third-party service integrations
+- [ ] **Database Integration**
+  - [ ] Transaction handling
+  - [ ] Concurrent access testing
+  - [ ] Data consistency checks
+  - [ ] Migration rollback testing
+- [ ] **External Service Integration**
+  - [ ] Twilio SMS delivery testing
+  - [ ] SendGrid email delivery testing
+  - [ ] Stripe payment processing
+  - [ ] Disney API connectivity (when available)
+
+### End-to-End Testing
+- [ ] **User Journey Tests**
+  - [ ] Complete signup → alert creation → notification flow
+  - [ ] Authentication → dashboard → alert management
+  - [ ] Payment upgrade → premium features
+  - [ ] Mobile PWA installation and usage
+- [ ] **Cross-Platform Testing**
+  - [ ] iOS Safari PWA functionality
+  - [ ] Android Chrome PWA functionality
+  - [ ] Desktop browser compatibility
+  - [ ] Push notification delivery across devices
+- [ ] **Performance Testing**
+  - [ ] Load testing with 10,000+ concurrent users
+  - [ ] Database performance under load
+  - [ ] API response time testing
+  - [ ] Memory usage monitoring
+  - [ ] Background job processing under load
+
+### Security Testing
+- [ ] **Authentication Security**
+  - [ ] Magic link token security
+  - [ ] Rate limiting effectiveness
+  - [ ] Session management
+  - [ ] JWT token validation
+- [ ] **Data Protection**
+  - [ ] Input sanitization
+  - [ ] SQL injection prevention
+  - [ ] XSS protection
+  - [ ] CSRF protection
+- [ ] **API Security**
+  - [ ] Endpoint authorization
+  - [ ] Data validation
+  - [ ] Error message security
+  - [ ] API rate limiting
+
+### User Acceptance Testing
+- [ ] **Disney Family Testing**
+  - [ ] Real-world Disney trip planning scenarios
+  - [ ] Mobile-first user experience
+  - [ ] Notification timing and relevance
+  - [ ] Payment flow usability
+- [ ] **Accessibility Testing**
+  - [ ] Screen reader compatibility
+  - [ ] Keyboard navigation
+  - [ ] Color contrast compliance
+  - [ ] Mobile accessibility
+- [ ] **Usability Testing**
+  - [ ] Alert creation simplicity
+  - [ ] Dashboard navigation
+  - [ ] Payment process clarity
+  - [ ] Error message helpfulness
+
+### Automated Testing Pipeline
+- [ ] **CI/CD Integration**
+  - [ ] GitHub Actions workflow
+  - [ ] Automated test execution
+  - [ ] Code coverage reporting
+  - [ ] Test result notifications
+- [ ] **Test Data Management**
+  - [ ] Test database seeding
+  - [ ] Mock service configuration
+  - [ ] Test environment isolation
+  - [ ] Data cleanup automation
+- [ ] **Monitoring and Alerting**
+  - [ ] Test failure notifications
+  - [ ] Performance regression detection
+  - [ ] Security vulnerability scanning
+  - [ ] Test coverage tracking
 
 ### Phase 6 – Production Readiness
 - [ ] **Security**
