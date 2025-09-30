@@ -39,7 +39,7 @@ See the [[Wiki]](../../wiki) for detailed documentation.
 ## 💼 Business Model
 
 - Free plan: limited alerts, email only.  
-- Single ($4.99): single alerts
+- Single alert ($4.99): single alerts
 - Premium ($9.99/mo): unlimited alerts, instant push, calendar sync.  
 - Family/Pro ($19.99–$29.99/mo): multiple profiles, concierge recommendations.  
 - Future expansion: Universal, cruises, and affiliate partnerships (dessert parties, hotels).  
