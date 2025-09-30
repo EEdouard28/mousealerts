@@ -26,7 +26,8 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(String, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)  # Can be null for phone-only users
+    phone = Column(String, unique=True, index=True, nullable=True)  # Phone number for SMS auth
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active = Column(Boolean, default=True)
     plan = Column(String, default="free")
