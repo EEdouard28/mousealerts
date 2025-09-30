@@ -1,0 +1,455 @@
+# Cursor Prompt — Build **MouseAlerts** (PWA)
+
+You are a senior full-stack pair programmer. Build **MouseAlerts**, a mobile-first web app (PWA) that alerts users when Disney dining reservations open. Users create alerts manually or via an AI Prompt Bar in plain English. We notify via push (preferred), SMS, and email. Users complete bookings on Disney’s official site/app (no auto-booking).
+
+## Objectives
+- Ship a working MVP with end-to-end flow:
+  `Create Alert → Watcher finds slot (simulated first) → Notify (push/email/SMS) → Deep link to Disney`.
+- Keep infra **lean** and **portable** (local dev via Docker; deploy on Fly.io/Render later).
+- Clean, typed code; tests; observability; clear docs.
+
+## Tech Stack (implement exactly)
+- **Frontend:** Next.js 14 (App Router, TypeScript, TailwindCSS), PWA (manifest + service worker), Vercel-compatible build.
+- **Backend:** FastAPI (Python 3.11+), Pydantic v2, SQLAlchemy + Alembic.
+- **DB:** PostgreSQL.
+- **Cache/Queue:** Redis (RQ or Celery; choose one and implement).
+- **Notifications:** 
+  - Web Push (VAPID) required.
+  - Email via SendGrid (stub env + adapter).
+  - SMS via Twilio (stub env + adapter).
+- **Auth:** Email magic link (passwordless). (Accept a simple code-by-email flow for MVP.)
+- **Payments:** Stripe subscriptions (Free, Premium, Family).
+- **AI:** LLM function-calling endpoint that converts NL prompt → alert specs; use light model placeholder and deterministic parsers (Chrono/Duckling or date-fns/chrono-node).
+
+## Repository Layout
+Create a monorepo:
+
+/api
+/app
+main.py
+config.py
+db.py
+deps.py
+models/                 # SQLAlchemy models
+schemas/                # Pydantic schemas
+routers/                # FastAPI routers (alerts, auth, nlu, billing, admin)
+services/               # business logic (alerts, notifications, nlu, billing)
+workers/                # queue consumers + scheduler
+/migrations               # Alembic
+/web
+app/                      # Next.js (App Router)
+components/
+lib/
+public/manifest.json
+service-worker.js
+/infra
+docker-compose.yml        # Postgres, Redis, api, web
+fly.toml (placeholder)
+/tests
+api/
+e2e/
+README.md
+
+## ENV & Config
+Create `.env.sample` with:
+
+API
+
+API_HOST=0.0.0.0
+API_PORT=8000
+DATABASE_URL=postgresql+psycopg://mousealerts:mousealerts@db:5432/mousealerts
+REDIS_URL=redis://redis:6379/0
+APP_ENV=dev
+JWT_SECRET=changeme
+
+Notifications
+
+SENDGRID_API_KEY=changeme
+TWILIO_ACCOUNT_SID=changeme
+TWILIO_AUTH_TOKEN=changeme
+TWILIO_FROM_NUMBER=+10000000000
+WEB_PUSH_VAPID_PUBLIC_KEY=changeme
+WEB_PUSH_VAPID_PRIVATE_KEY=changeme
+WEB_PUSH_VAPID_SUBJECT=mailto:admin@mousealerts.app
+
+Stripe
+
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PRICE_PREMIUM=price_xxx
+STRIPE_PRICE_FAMILY=price_xxx
+
+Web
+
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+NEXTAUTH_SECRET=changeme
+
+## Data Model (SQLAlchemy)
+Implement these tables with Alembic migrations:
+
+- `users(id, email, created_at, plan, subscription_status)`
+- `alerts(id, user_id, park, venue, date, time_start, time_end, party_size, status, channels jsonb, created_at)`
+- `watcher_runs(id, venue, run_at, result_json jsonb, found_count, error)`
+- `notifications(id, alert_id, channel, status, sent_at, latency_ms)`
+- `plans(id, name, limits jsonb, price_cents)`
+- `subscriptions(id, user_id, plan_id, status, current_period_end)`
+
+## API — Routes (FastAPI)
+Implement versioned routes under `/api`:
+
+- `GET /health` → `{status:"ok", version}`
+- `POST /auth/magic-link` → send login code email; `POST /auth/verify` → issue JWT
+- `GET /me` → current user
+- `POST /alerts` (create), `GET /alerts`, `PATCH /alerts/{id}`, `DELETE /alerts/{id}`
+- `GET /admin/runs?limit=100` → recent watcher runs (admin only)
+- `POST /nlu/parse` → NL text → JSON spec + ranked venue suggestions + upsell options
+- `POST /push/subscribe` → store Web Push subscription for user
+- `POST /billing/stripe/webhook` → update subscriptions on events
+
+### Business Rules
+- **De-dupe:** For a given user, do not send duplicate notifications for the same `(venue, date, time_window)` more than once / 24h.
+- **Alert status:** `active | paused | expired`.
+- **Plan limits:** Free=2 active alerts, delayed email; Premium/Family=unlimited, instant push.
+
+## Workers & Scheduler
+- Implement a `fetcher` interface that returns available time slots for venues.
+- **MVP Phase**: Use **fixture/mock JSON** and **simulated source** for development and testing.
+- **Production Phase**: Implement real Disney data fetcher using reverse-engineered endpoints (same approach as MouseWatcher).
+- **Scheduler** runs every minute; enqueues jobs per active alert (respect rate limits).
+- **Backoff** & retry on errors; record `watcher_runs`.
+- On new slot found → normalize → check de-dupe → enqueue notification fan-out.
+
+## Disney Data Strategy (Production)
+**Approach**: Reverse engineer Disney's My Disney Experience endpoints (same method as MouseWatcher)
+
+### Technical Implementation
+```python
+class DisneyFetcher:
+    def __init__(self):
+        self.base_url = "https://disneyworld.disney.go.com"
+        self.session = self._create_session()
+    
+    def get_availability(self, venue_id: str, date: str, party_size: int):
+        """Fetch availability from Disney's internal API endpoints"""
+        # Call Disney's reservation search endpoints
+        # Parse response for available time slots
+        # Return normalized availability data
+        pass
+    
+    def _create_session(self):
+        """Create session with proper headers to mimic official app"""
+        # User-Agent, headers, cookies to avoid detection
+        pass
+```
+
+### Legal Protection Strategy
+- **Clear Disclaimers**: "Not affiliated with Disney" throughout app
+- **Notification-Only**: No auto-booking, users complete on Disney's site
+- **Rate Limiting**: Respectful polling (1-2 requests per minute per venue)
+- **User Responsibility**: Users must have valid Disney accounts
+- **Terms of Service**: Include Disney ToS compliance language
+
+### Rate Limiting & Anti-Detection
+- **Respectful Polling**: 60-120 second intervals between requests
+- **User-Agent Rotation**: Mimic official Disney app requests
+- **IP Rotation**: Use proxy services if needed
+- **Error Handling**: Graceful degradation when Disney blocks requests
+- **Circuit Breaker**: Stop polling if error rate exceeds threshold
+
+### Data Source Validation
+- **MouseWatcher Analysis**: Study their approach and success
+- **Network Traffic Analysis**: Reverse engineer Disney's endpoints
+- **Endpoint Discovery**: Find reservation search APIs
+- **Authentication**: Handle Disney's auth requirements
+- **Data Parsing**: Extract availability from Disney's response format
+
+## Notifications
+- **Web Push:** VAPID keys; store per-user subscriptions; send payload with deep link.
+- **Email (SendGrid):** simple transactional template; include “Book now” link.
+- **SMS (Twilio):** concise message + link.
+- Configurable per alert: push/email/SMS (default push + email).
+
+## NL → Alert (AI Prompt Bar)
+Pipeline:
+1) Deterministic parse for dates/times (Chrono/Duckling or chrono-node; resolve “this Thu 7pm”).
+2) Rule-based park detection (Magic Kingdom, EPCOT, etc.) and venue tagging (e.g., `princess`, `fireworks_view`).
+3) Optional LLM function-calling to finalize a **strict JSON**:
+```json
+{
+  "park": "EPCOT",
+  "date": "2025-10-23",
+  "time_window": ["19:00","20:00"],
+  "party_size": 4,
+  "experience_tags": ["fireworks_view","table_service"],
+  "alternates_ok": true
+}
+
+	4.	Return 3 suggestion cards (best match, close match, backup) + upsell toggles:
+	•	“±30 min window”, “Add backup day”, “Cross-park alternate”.
+
+Frontend (Next.js)
+
+Pages (App Router):
+	•	/login magic link flow
+	•	/alerts (list, create/edit)
+	•	/alerts/new wizard
+	•	/prompt AI Prompt Bar page with chips (Park, Date, Time, Party, Tags) and “Add N alerts”
+	•	/admin/runs (admin dashboard)
+	•	Pricing & billing pages; success/cancel; account page with plan info
+
+UI Requirements:
+	•	Mobile-first, clean Tailwind styles.
+	•	Toasts for success/errors.
+	•	PWA: manifest + service worker; prompt to enable push.
+
+Deep Links (Booking)
+	•	For MVP, construct deterministic links to Disney restaurant/date pages (no login automation). If exact prefill isn’t possible, link to the correct restaurant search page for the date/time. Provide a fallback link and show UX guidance if the slot is gone.
+
+Observability
+	•	Sentry (web + api).
+	•	Structured logs for workers and API.
+	•	Minimal metrics endpoint: slot_to_ping_seconds p50/p95, runs per minute, failure rate.
+
+Seed Data
+	•	Seed venues with a small catalog (e.g., Cinderella’s Royal Table [princess], Akershus [princess], La Hacienda, Rose & Crown [fireworks_view], Spice Road Table [fireworks_view]).
+	•	Include tags: princess, character_dining, fireworks_view, table_service, $$$$.
+
+Docker & Dev
+	•	docker-compose up brings up db, redis, api, web.
+	•	Add make dev, make test, make seed targets.
+
+Tests (implement now)
+	•	Unit: de-dupe, backoff, parsers (date/time), NLU function outputs (goldens).
+	•	E2E: create alert → simulate slot → verify notification (mock SendGrid/Twilio, real Web Push stub).
+	•	Load smoke: 10k alerts simulated; check queue lag < 60s.
+
+Acceptance Criteria (MVP)
+	•	E2E happy path under 10s median from "slot found" → notification sent (simulated data).
+	•	Duplicate notifications prevented for same slot within 24h.
+	•	Prompt Bar produces accurate suggestions for at least 20 sample prompts (≥80% pass).
+	•	Stripe webhooks update user plan within 60s; plan gates enforced.
+	•	PWA push works on desktop Chrome + iOS/Android.
+
+## Legal & Compliance
+- **Terms of Service** with clear Disney disclaimers ("Not affiliated with Disney")
+- **Privacy Policy** for GDPR/CCPA compliance, especially for push notifications
+- **Rate Limiting Strategy** to avoid triggering Disney's anti-bot measures
+- **Legal Disclaimers** throughout the app about third-party service status
+
+## Error Recovery & Resilience
+- **Fetcher Failures**: Exponential backoff, circuit breaker pattern
+- **Notification Failures**: Retry queue with dead letter handling
+- **User Experience**: Graceful degradation when services are down
+- **Data Consistency**: Handle partial failures in notification pipeline
+- **Offline Support**: Cache alerts locally, sync when connection restored
+
+## Business Metrics & Monitoring
+- **Performance**: Time to first notification (vs competitors)
+- **Accuracy**: False positive rate, missed slot rate
+- **Business**: User retention after successful booking, free→paid conversion
+- **Technical**: Queue latency, notification delivery success rate
+- **User Experience**: AI prompt bar accuracy, user satisfaction scores
+
+## User Experience Edge Cases
+- **Alert Expiration**: Auto-renewal options, expiration notifications
+- **Time Zone Handling**: Disney operates in EST, handle user time zones
+- **Daylight Saving Time**: Proper time change handling
+- **Onboarding**: AI prompt bar tutorial, sample prompts, success stories
+- **Help Documentation**: Clear guides for common use cases
+
+## Competitive Differentiation
+- **Speed Advantage**: Faster than MouseWatcher/MouseDining
+- **Accuracy**: Lower false positive rate, better slot detection
+- **User Education**: Tutorials for AI prompt bar effectiveness
+- **Pricing**: More transparent than per-alert competitors
+
+Non-Goals / Constraints
+	•	No auto-booking, no storing Disney credentials.
+	•	No scraping behind login; MVP uses simulated data; fetcher interface is pluggable.
+	•	No native apps in MVP (PWA only).
+
+Post-MVP (Stretch)
+	•	Calendar sync (Google/Apple).
+	•	Probability badges (derived from watcher history).
+	•	“Trip profile” flow to bulk-create alerts for a vacation.
+	•	Multi-park expansion and marketplace concept.
+
+Begin by scaffolding the repo structure, env, and Docker. Then implement Phase 1 (Core Alerts MVP) with simulated fetcher and working notifications, followed by Phase 2 (AI Prompt Bar). Keep PRs small and incremental with tests.
+
+## 📊 Implementation Tracker
+
+### Phase 0 – Foundation
+- [ ] **Repository Setup**
+  - [ ] Monorepo structure (`/api`, `/web`, `/infra`, `/tests`)
+  - [ ] Git repository with proper `.gitignore`
+  - [ ] README with setup instructions
+- [ ] **Environment & Config**
+  - [ ] `.env.sample` with all required variables
+  - [ ] Environment validation in both API and web
+  - [ ] Docker configuration for local development
+- [ ] **Database Setup**
+  - [ ] PostgreSQL with Alembic migrations
+  - [ ] Redis for caching and queues
+  - [ ] Database connection pooling
+- [ ] **Authentication**
+  - [ ] Magic link email flow
+  - [ ] JWT token management
+  - [ ] User session handling
+- [ ] **CI/CD Pipeline**
+  - [ ] GitHub Actions for testing
+  - [ ] Docker build and deployment
+  - [ ] Environment-specific configurations
+
+### Phase 1 – Core Alerts MVP
+- [ ] **Data Models**
+  - [ ] User model with plan/subscription fields
+  - [ ] Alert model with all required fields
+  - [ ] WatcherRun model for tracking
+  - [ ] Notification model for delivery tracking
+  - [ ] Plan/Subscription models for billing
+- [ ] **Disney Data Research**
+  - [ ] Sign up for MouseWatcher service
+  - [ ] Document their UX and approach
+  - [ ] Analyze Disney's My Disney Experience network traffic
+  - [ ] Identify reservation search endpoints
+  - [ ] Test rate limiting and anti-bot measures
+- [ ] **API Endpoints**
+  - [ ] Health check endpoint
+  - [ ] Authentication endpoints (`/auth/magic-link`, `/auth/verify`)
+  - [ ] User profile endpoint (`/me`)
+  - [ ] Alert CRUD endpoints (`/alerts`)
+  - [ ] Admin endpoints (`/admin/runs`)
+- [ ] **Background Workers**
+  - [ ] Scheduler that runs every minute
+  - [ ] Fetcher interface with mock implementation
+  - [ ] De-duplication logic (24h rule)
+  - [ ] Notification fan-out system
+- [ ] **Disney Data Integration**
+  - [ ] Research MouseWatcher's approach
+  - [ ] Reverse engineer Disney's endpoints
+  - [ ] Implement DisneyFetcher class
+  - [ ] Rate limiting and anti-detection measures
+  - [ ] Legal compliance and disclaimers
+- [ ] **Notifications**
+  - [ ] Web Push with VAPID keys
+  - [ ] Email via SendGrid (stubbed)
+  - [ ] SMS via Twilio (stubbed)
+  - [ ] Deep linking to Disney's site
+- [ ] **Frontend (Next.js)**
+  - [ ] Authentication flow (magic link)
+  - [ ] Alert creation form
+  - [ ] Alert list and management
+  - [ ] Basic responsive design
+- [ ] **Testing**
+  - [ ] Unit tests for de-duplication logic
+  - [ ] E2E tests for alert creation → notification
+  - [ ] Load testing with 10k simulated alerts
+
+### Phase 2 – AI Prompt Bar
+- [ ] **NLU Pipeline**
+  - [ ] Date/time parsing (Chrono/Duckling)
+  - [ ] Park detection (Magic Kingdom, EPCOT, etc.)
+  - [ ] Venue tagging (princess, fireworks_view, etc.)
+  - [ ] LLM function-calling for structured output
+- [ ] **API Endpoints**
+  - [ ] `/nlu/parse` endpoint
+  - [ ] Venue suggestion endpoint
+  - [ ] Upsell options endpoint
+- [ ] **Frontend Components**
+  - [ ] AI Prompt Bar with chips
+  - [ ] Suggestion cards (best match, close match, backup)
+  - [ ] Upsell toggles and options
+  - [ ] Sample prompts and tutorials
+- [ ] **Testing**
+  - [ ] NLU accuracy tests (≥80% for 20 sample prompts)
+  - [ ] Suggestion quality validation
+  - [ ] User experience testing
+
+### Phase 3 – Premium & Payments
+- [ ] **Stripe Integration**
+  - [ ] Subscription plan setup
+  - [ ] Webhook handling for plan changes
+  - [ ] Customer portal integration
+  - [ ] Billing page with plan comparison
+- [ ] **Plan Enforcement**
+  - [ ] Free plan limits (2 alerts, email only)
+  - [ ] Premium plan features (unlimited, instant push)
+  - [ ] Family plan features (multiple profiles)
+- [ ] **Frontend**
+  - [ ] Pricing page
+  - [ ] Billing management
+  - [ ] Plan upgrade/downgrade flows
+- [ ] **Testing**
+  - [ ] Stripe webhook testing
+  - [ ] Plan enforcement validation
+  - [ ] Payment flow testing
+
+### Phase 4 – PWA & Push
+- [ ] **PWA Setup**
+  - [ ] Web app manifest
+  - [ ] Service worker implementation
+  - [ ] Offline support and caching
+  - [ ] Install prompts and guidance
+- [ ] **Push Notifications**
+  - [ ] VAPID key management
+  - [ ] Subscription storage per user
+  - [ ] Push notification delivery
+  - [ ] Notification preferences
+- [ ] **Mobile Optimization**
+  - [ ] Touch-friendly interfaces
+  - [ ] Mobile-specific UX patterns
+  - [ ] iOS/Android compatibility
+- [ ] **Testing**
+  - [ ] PWA installation testing
+  - [ ] Push notification testing across devices
+  - [ ] Offline functionality validation
+
+### Phase 5 – Admin & Monitoring
+- [ ] **Admin Dashboard**
+  - [ ] Active alerts overview
+  - [ ] Error rates and monitoring
+  - [ ] Worker queue depth
+  - [ ] User analytics
+- [ ] **Observability**
+  - [ ] Sentry integration for error tracking
+  - [ ] Structured logging
+  - [ ] Metrics collection
+  - [ ] Performance monitoring
+- [ ] **Business Metrics**
+  - [ ] Slot-to-ping timing
+  - [ ] User retention tracking
+  - [ ] Conversion rate monitoring
+  - [ ] Revenue analytics
+
+### Phase 6 – Production Readiness
+- [ ] **Security**
+  - [ ] Input validation and sanitization
+  - [ ] Rate limiting implementation
+  - [ ] Security headers
+  - [ ] Vulnerability scanning
+- [ ] **Performance**
+  - [ ] Database query optimization
+  - [ ] Caching strategies
+  - [ ] CDN setup
+  - [ ] Load balancing
+- [ ] **Legal & Compliance**
+  - [ ] Terms of Service
+  - [ ] Privacy Policy
+  - [ ] GDPR compliance
+  - [ ] Disney disclaimers
+- [ ] **Documentation**
+  - [ ] API documentation
+  - [ ] Deployment guides
+  - [ ] User documentation
+  - [ ] Troubleshooting guides
+
+### 🎯 Success Metrics
+- [ ] **Performance**: <10s median from slot found → notification sent
+- [ ] **Accuracy**: <5% false positive rate
+- [ ] **Reliability**: 99.9% uptime
+- [ ] **User Experience**: ≥4.5/5 user satisfaction
+- [ ] **Business**: 20% free-to-paid conversion rate
+
+---
+
+If you want, I can also generate a **starter `docker-compose.yml` + Makefile** to plug right into this prompt so Cursor spins the stack up locally in one go.
