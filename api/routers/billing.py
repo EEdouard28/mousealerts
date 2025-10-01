@@ -146,14 +146,13 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         user_id = subscription['metadata'].get('user_id')
         if user_id:
             # Create new subscription record
+            from datetime import datetime
             new_subscription = Subscription(
                 id=subscription['id'],
                 user_id=user_id,
                 plan_id=subscription['items']['data'][0]['price']['id'],
                 status=subscription['status'],
-                current_period_start=subscription['current_period_start'],
-                current_period_end=subscription['current_period_end'],
-                stripe_subscription_id=subscription['id']
+                current_period_end=datetime.fromtimestamp(subscription['current_period_end'])
             )
             db.add(new_subscription)
             db.commit()
