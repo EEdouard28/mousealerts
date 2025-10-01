@@ -47,6 +47,9 @@ class ParseResponse(BaseModel):
     alternates_ok: bool
     suggestions: List[Dict[str, Any]]
     upsell_options: List[Dict[str, Any]]
+    confidence: float
+    needs_clarification: bool
+    clarification_questions: List[str]
 
 @router.post("/parse", response_model=ParseResponse)
 async def parse_nl_text(
@@ -92,5 +95,20 @@ async def get_available_tags():
             "indoor_seating",
             "waterfront",
             "themed_dining"
+        ]
+    }
+
+@router.get("/test")
+async def test_nlu_endpoint():
+    """Test endpoint to verify NLU service is working"""
+    return {
+        "status": "ok",
+        "message": "NLU service is running",
+        "examples": [
+            "Princess dining Thursday at 7pm for 4 people",
+            "Be Our Guest next Friday evening", 
+            "Character dining at Magic Kingdom tomorrow",
+            "Dinner at EPCOT on Saturday",
+            "Something romantic with fireworks view"
         ]
     }

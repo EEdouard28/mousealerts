@@ -25,10 +25,11 @@ class Settings(BaseSettings):
     APP_ENV: str = "dev"
     
     # Database
-    DATABASE_URL: str = "postgresql+psycopg://mousealerts:mousealerts@localhost:5432/mousealerts"
+    DATABASE_URL: str = "sqlite:///./mousealerts.db"
     
-    # Redis
+    # Redis (disabled for local development)
     REDIS_URL: str = "redis://localhost:6379/0"
+    USE_REDIS: bool = False
     
     # JWT
     JWT_SECRET: str = "changeme"

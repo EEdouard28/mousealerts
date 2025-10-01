@@ -11,9 +11,6 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   images: {
     domains: [
       'disneyworld.disney.go.com',
@@ -26,7 +23,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_BASE}/api/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_BASE || 'http://api:8000'}/api/:path*`,
       },
     ]
   },

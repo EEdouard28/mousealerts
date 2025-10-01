@@ -19,7 +19,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from config import settings
 from db import engine, Base
-from routers import auth, alerts, admin, nlu, push, billing
+from routers import auth, alerts, admin, nlu, push, billing, worker, scraping_worker
 
 # Initialize Sentry
 if settings.APP_ENV == "production":
@@ -59,6 +59,8 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(nlu.router, prefix="/api/nlu", tags=["nlu"])
 app.include_router(push.router, prefix="/api/push", tags=["push"])
 app.include_router(billing.router, prefix="/api/billing", tags=["billing"])
+app.include_router(worker.router, prefix="/api/worker", tags=["worker"])
+app.include_router(scraping_worker.router, prefix="/api/scraping", tags=["scraping"])
 
 @app.on_event("startup")
 async def startup_event():
