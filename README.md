@@ -5,6 +5,40 @@ This README describes the technical requirements, stack, and build roadmap.
 
 ---
 
+## 🚀 **LIVE DEMO - Try It Now!**
+
+**For Business Partners & Non-Technical Users:**
+
+### 🌐 **Access the Live Demo**
+**URL:** https://web-nu-six-61.vercel.app
+
+### 📱 **How to Test the App (No Technical Knowledge Required)**
+
+1. **Visit the website** - Click the link above
+2. **Click "✨ Start Free Trial"** on the homepage
+3. **Look for the yellow "🧪 Demo Mode" section** on the login page
+4. **Click "🚀 Try Demo Account"** button
+5. **Explore the full application:**
+   - Dashboard with user interface
+   - Create dining alerts with restaurant search
+   - Test the AI Prompt Bar with natural language
+   - View alert management features
+
+### ✨ **What You'll See**
+- **Professional landing page** with value proposition
+- **User dashboard** with alert management
+- **Restaurant search** with 100+ Disney restaurants
+- **AI Prompt Bar** - Try typing "Princess dining Thursday at 7pm"
+- **Mobile-responsive design** that works on phones and tablets
+
+### 🎯 **Perfect for**
+- Business partners reviewing the product
+- Investors seeing the MVP
+- User testing and feedback
+- Stakeholder demonstrations
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Frontend:** Next.js 14 (App Router, TypeScript, Tailwind, PWA support)
