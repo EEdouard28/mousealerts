@@ -25,14 +25,12 @@ import {
   PlusIcon, 
   CogIcon, 
   UserIcon,
-  SparklesIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   CalendarIcon,
   MapPinIcon,
-  ArrowRightOnRectangleIcon,
-  ChatBubbleLeftRightIcon
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 
@@ -42,6 +40,22 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateAlert, setShowCreateAlert] = useState(false);
+
+  // For testing: Set up mock user if not authenticated
+  useEffect(() => {
+    if (!user && !isLoading) {
+      const mockUser = {
+        id: 'mock-user-123',
+        phone: '+15551234567',
+        email: 'test@mousealerts.com',
+        plan: 'free',
+        created_at: new Date().toISOString(),
+      };
+      localStorage.setItem('auth_token', 'mock-jwt-token-123');
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      window.location.reload();
+    }
+  }, [user, isLoading]);
 
   // Mock data for demonstration
   useEffect(() => {
@@ -106,6 +120,20 @@ export default function DashboardPage() {
     router.push('/alerts/create');
   };
 
+  // For testing: Show dashboard directly if no user
+  if (!user && !isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="loading-spinner mx-auto mb-4 w-6 h-6" />
+            <p className="text-gray-600">Setting up mock user...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
@@ -114,8 +142,8 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div className="flex items-center space-x-3">
-                <div className="magic-glow">
-                  <SparklesIcon className="w-8 h-8 text-primary-500" />
+                <div className="w-6 h-6 text-primary-500">
+                  ✨
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">MouseAlerts</h1>
@@ -166,7 +194,7 @@ export default function DashboardPage() {
                     onClick={() => router.push('/ai-prompt')}
                     className="btn btn-accent flex items-center space-x-2"
                   >
-                    <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                    <span className="w-5 h-5">💬</span>
                     <span>AI Prompt Bar</span>
                   </button>
                 </div>
@@ -180,7 +208,7 @@ export default function DashboardPage() {
               <div className="card-body">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="p-2 bg-white/20 rounded-lg">
-                    <ChatBubbleLeftRightIcon className="w-6 h-6 text-white" />
+                    <div className="w-6 h-6 text-white">💬</div>
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-white">AI Prompt Bar</h3>
@@ -260,12 +288,12 @@ export default function DashboardPage() {
 
             {isLoading ? (
               <div className="card p-8 text-center">
-                <div className="loading-spinner mx-auto mb-4 w-8 h-8" />
+                <div className="loading-spinner mx-auto mb-4 w-6 h-6" />
                 <p className="text-gray-600">Loading your alerts...</p>
               </div>
             ) : alerts.length === 0 ? (
               <div className="card p-8 text-center">
-                <BellIcon className="w-8 h-8 text-gray-400 mx-auto mb-4" />
+                <BellIcon className="w-6 h-6 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-semibold text-gray-900 mb-2">No alerts yet</h4>
                 <p className="text-gray-600 mb-6">
                   Create your first dining alert to get started with MouseAlerts!
