@@ -204,8 +204,39 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Features Preview */}
+          {/* Mock User for Testing */}
           <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-yellow-800 mb-2">
+                🧪 Demo Mode
+              </h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                Want to see the app without signing up? Use our demo account:
+              </p>
+              <button
+                onClick={() => {
+                  // Set up mock user for testing
+                  const mockUser = {
+                    id: 'mock-user-123',
+                    phone: '+15551234567',
+                    email: 'test@mousealerts.com',
+                    plan: 'free',
+                    created_at: new Date().toISOString(),
+                  };
+                  
+                  localStorage.setItem('auth_token', 'mock-jwt-token-123');
+                  localStorage.setItem('user', JSON.stringify(mockUser));
+                  window.location.href = '/dashboard';
+                }}
+                className="btn btn-primary btn-sm w-full"
+              >
+                🚀 Try Demo Account
+              </button>
+            </div>
+          </div>
+
+          {/* Features Preview */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
             <h3 className="text-sm font-medium text-gray-900 mb-3">
               What you'll get:
             </h3>
