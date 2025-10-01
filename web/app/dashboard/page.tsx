@@ -30,7 +30,8 @@ import {
   ExclamationTriangleIcon,
   CalendarIcon,
   MapPinIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 
@@ -156,6 +157,13 @@ export default function DashboardPage() {
                   <UserIcon className="w-4 h-4" />
                   <span>{user?.phone || 'User'}</span>
                 </div>
+                <button
+                  onClick={() => router.push('/billing')}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <CreditCardIcon className="w-4 h-4" />
+                  <span>Billing</span>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
