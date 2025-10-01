@@ -85,7 +85,7 @@ class NotificationService {
       // Subscribe to push notifications
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey) as ArrayBufferView
+        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
       });
 
       // Send subscription to server
@@ -188,7 +188,7 @@ class NotificationService {
   /**
    * Convert VAPID key to Uint8Array
    */
-  private urlBase64ToUint8Array(base64String: string): Uint8Array {
+  private urlBase64ToUint8Array(base64String: string): ArrayBufferView {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
       .replace(/-/g, '+')
