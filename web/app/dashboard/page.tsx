@@ -20,6 +20,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AIPromptBar from '@/components/AIPromptBar';
+import { PlanProvider } from '@/lib/plan';
+import { PlanUsageDisplay, UpgradeSuggestions } from '@/components/PlanEnforcement';
 import { 
   BellIcon, 
   PlusIcon, 
@@ -137,7 +139,8 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+      <PlanProvider>
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -242,8 +245,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Plan Information */}
+            <div className="mb-8">
+              <PlanUsageDisplay />
+              <UpgradeSuggestions />
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="card p-6">
               <div className="flex items-center">
                 <div className="p-3 bg-primary-100 rounded-xl">
@@ -375,6 +384,7 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
+      </PlanProvider>
     </ProtectedRoute>
   );
 }

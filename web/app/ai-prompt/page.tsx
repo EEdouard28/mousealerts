@@ -11,6 +11,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
+import { PlanProvider } from '@/lib/plan'
+import PlanEnforcement from '@/components/PlanEnforcement'
 import { 
   SparklesIcon, 
   ChatBubbleLeftRightIcon,
@@ -142,7 +144,8 @@ export default function AIPromptPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50">
+    <PlanProvider>
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -168,8 +171,10 @@ export default function AIPromptPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Main Input Section */}
-        <div className="card card-glass mb-8">
+        {/* Plan Enforcement */}
+        <PlanEnforcement feature="ai_prompt_bar">
+          {/* Main Input Section */}
+          <div className="card card-glass mb-8">
           <div className="card-body">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-primary-500 to-accent-500 rounded-2xl mb-4">
@@ -441,7 +446,9 @@ export default function AIPromptPage() {
             )}
           </div>
         )}
+        </PlanEnforcement>
       </div>
     </div>
+    </PlanProvider>
   )
 }
