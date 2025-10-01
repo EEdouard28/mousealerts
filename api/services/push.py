@@ -25,6 +25,32 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+class PushService:
+    """Push notification service class for handling all push operations"""
+    
+    def __init__(self):
+        pass
+    
+    async def store_push_subscription(self, user_id: str, subscription_data: Dict[str, Any], db):
+        """Store user's push subscription in database"""
+        return await store_push_subscription(user_id, subscription_data, db)
+    
+    async def send_push_notification(self, user_id: str, title: str, body: str, db, data: Dict[str, Any] = None):
+        """Send push notification to user"""
+        return await send_push_notification(user_id, title, body, db, data)
+    
+    async def get_user_push_subscription(self, user_id: str, db):
+        """Get user's push subscription from database"""
+        return await get_user_push_subscription(user_id, db)
+    
+    async def remove_push_subscription(self, user_id: str, db):
+        """Remove expired push subscription"""
+        return await remove_push_subscription(user_id, db)
+    
+    async def send_alert_push_notification(self, user_id: str, alert_data: Dict[str, Any], db):
+        """Send push notification for found reservation"""
+        return await send_alert_push_notification(user_id, alert_data, db)
+
 async def store_push_subscription(user_id: str, subscription_data: Dict[str, Any], db):
     """Store user's push subscription in database"""
     # This would store the subscription in a dedicated table

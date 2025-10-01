@@ -6,7 +6,6 @@ Each token is single-use and expires after 15 minutes for security.
 """
 
 from sqlalchemy import Column, String, DateTime, Boolean, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 
@@ -16,7 +15,7 @@ from db import Base
 class MagicLinkToken(Base):
     __tablename__ = "magic_link_tokens"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     phone = Column(String(20), nullable=False, index=True)  # E.164 format: +1234567890
     token = Column(String(255), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)

@@ -10,12 +10,11 @@
  * - Mobile-first responsive design
  */
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
-// import { AuthProvider } from '@/components/providers/AuthProvider'
-// import { QueryProvider } from '@/components/providers/QueryProvider'
+import { AuthProvider } from '@/lib/auth'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -90,12 +89,13 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'MouseAlerts',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export default function RootLayout({
@@ -109,14 +109,16 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/favicon.ico" />
         <meta name="theme-color" content="#f2851a" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="MouseAlerts" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#f2851a" />
       </head>
       <body className="min-h-screen bg-gray-50 font-sans antialiased">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Toaster
           position="top-right"
           toastOptions={{
