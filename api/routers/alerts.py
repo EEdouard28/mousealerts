@@ -34,6 +34,7 @@ from deps import get_current_active_user
 from models.user import User
 from models.alert import Alert
 from schemas.alert import AlertCreate, AlertUpdate, AlertResponse
+from services.plan_enforcement import PlanEnforcement
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,23 @@ async def create_alert(
         HTTPException: If alert creation fails
     """
     try:
-        # Create new alert
+        # Check plan limits before creating alert
+        plan_enforcement = PlanEnforcement(db)
+        can_create, error_message, upgrade_suggestion = plan_enforcement.enforce_alert_creation(current_user.id)
+        
+        if not can_create:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": error_message,
+                    "upgrade_suggestion": upgrade_suggestion
+                }
+            )
+        
+        # Check notification channel permissions
+        allowed_channels = plan_enforcement.get_notification_channels(current_user.id)
+        
+        # Create new alert with plan-aware notifications
         alert = Alert(
             id=str(uuid.uuid4()),
             user_id=current_user.id,
@@ -125,9 +142,9 @@ async def create_alert(
             date=alert_data.date,
             time=alert_data.time,
             party_size=alert_data.party_size,
-            notifications_sms=alert_data.notifications.get('sms', True),
-            notifications_email=alert_data.notifications.get('email', False),
-            notifications_push=alert_data.notifications.get('push', True),
+            notifications_sms=alert_data.notifications.get('sms', True) and 'sms' in allowed_channels,
+            notifications_email=alert_data.notifications.get('email', True) and 'email' in allowed_channels,
+            notifications_push=alert_data.notifications.get('push', True) and 'push' in allowed_channels,
             notes=alert_data.notes,
             status='active'
         )
@@ -146,6 +163,52 @@ async def create_alert(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create alert"
+        )
+
+@router.get("/plan-info")
+async def get_plan_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get user's current plan information and usage limits.
+    
+    Returns:
+        Plan details, usage statistics, and upgrade suggestions
+    """
+    try:
+        plan_enforcement = PlanEnforcement(db)
+        
+        # Get plan information
+        plan_info = plan_enforcement.get_user_plan(current_user.id)
+        
+        # Get usage statistics
+        usage = plan_enforcement.get_alert_usage(current_user.id)
+        
+        # Get upgrade suggestions
+        suggestions = plan_enforcement.get_upgrade_suggestions(current_user.id)
+        
+        # Get feature access
+        features = {
+            "ai_prompt_bar": plan_enforcement.can_use_feature(current_user.id, "ai_prompt_bar"),
+            "sms_notifications": plan_enforcement.can_use_feature(current_user.id, "sms_notifications"),
+            "instant_notifications": plan_enforcement.can_use_feature(current_user.id, "instant_notifications"),
+            "priority_support": plan_enforcement.can_use_feature(current_user.id, "priority_support")
+        }
+        
+        return {
+            "plan": plan_info,
+            "usage": usage,
+            "features": features,
+            "upgrade_suggestions": suggestions,
+            "monitoring_interval": plan_enforcement.get_monitoring_interval(current_user.id)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get plan info for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve plan information"
         )
 
 @router.get("/{alert_id}", response_model=AlertResponse)

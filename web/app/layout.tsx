@@ -15,6 +15,7 @@ import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/lib/auth'
+import PWAInstall from '@/components/PWAInstall'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -118,6 +119,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-gray-50 font-sans antialiased">
         <AuthProvider>
           {children}
+          <PWAInstall />
         </AuthProvider>
         <Toaster
           position="top-right"

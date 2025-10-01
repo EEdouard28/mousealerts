@@ -1,0 +1,26 @@
+# MouseAlerts - Robots.txt
+# This file tells search engines which pages to crawl and index
+
+User-agent: *
+Allow: /
+
+# Block admin routes from search engines
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin/*
+Disallow: /api/admin
+Disallow: /api/admin/
+
+# Block sensitive API endpoints
+Disallow: /api/auth/
+Disallow: /api/billing/
+Disallow: /api/notifications/
+
+# Allow public pages
+Allow: /
+Allow: /auth/login
+Allow: /billing
+Allow: /pricing
+
+# Sitemap location
+Sitemap: https://mousealerts.com/sitemap.xml
