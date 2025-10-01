@@ -28,7 +28,8 @@ import {
   EyeIcon,
   UserGroupIcon,
   CreditCardIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ChartPieIcon
 } from '@heroicons/react/24/outline';
 
 interface AdminStats {
@@ -174,6 +175,7 @@ export default function AdminDashboard() {
               <nav className="flex space-x-4">
                 <a href="/admin" className="text-primary-600 font-medium">Dashboard</a>
                 <a href="/admin/users" className="text-gray-600 hover:text-gray-900">Users</a>
+                <a href="/admin/analytics" className="text-gray-600 hover:text-gray-900">Analytics</a>
                 <a href="/admin/system" className="text-gray-600 hover:text-gray-900">System</a>
               </nav>
               <button
@@ -345,6 +347,40 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
+        {/* Analytics Overview */}
+        <div className="mt-8">
+          <div className="card">
+            <div className="card-header">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Analytics Overview</h3>
+                <a 
+                  href="/admin/analytics" 
+                  className="btn btn-sm btn-primary flex items-center space-x-2"
+                >
+                  <ChartPieIcon className="w-4 h-4" />
+                  <span>View Full Analytics</span>
+                </a>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Conversion Rate</p>
+                  <p className="text-2xl font-bold text-green-600">{stats?.revenue.conversionRate}%</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Active Alerts</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats?.alerts.active}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">System Health</p>
+                  <p className="text-2xl font-bold text-green-600">99.9%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-8">
           <div className="card">
             <div className="card-header">
