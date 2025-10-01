@@ -21,7 +21,7 @@ import {
   ClockIcon,
   ArrowPathIcon,
   ServerIcon,
-  DatabaseIcon,
+  CircleStackIcon,
   BellIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
