@@ -69,25 +69,53 @@ async def get_current_subscription(
 @router.post("/create-checkout")
 async def create_checkout_session(
     price_id: str,
+    plan_type: str = "subscription",  # "subscription" or "one_time"
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Create Stripe checkout session for subscription"""
+    """Create Stripe checkout session for subscription or one-time payment"""
     try:
-        checkout_session = stripe.checkout.Session.create(
-            customer_email=current_user.email,
-            payment_method_types=['card'],
-            line_items=[{
-                'price': price_id,
-                'quantity': 1,
-            }],
-            mode='subscription',
-            success_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/success",
-            cancel_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/cancel",
-            metadata={
-                'user_id': current_user.id
-            }
-        )
+        if plan_type == "one_time":
+            # For single alert one-time payment
+            checkout_session = stripe.checkout.Session.create(
+                customer_email=current_user.email,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': 'Single Alert - MouseAlerts',
+                            'description': 'One-time payment for a single Disney dining alert'
+                        },
+                        'unit_amount': 499,  # $4.99 in cents
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/success?type=single",
+                cancel_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/cancel",
+                metadata={
+                    'user_id': current_user.id,
+                    'plan_type': 'single_alert'
+                }
+            )
+        else:
+            # For subscription plans
+            checkout_session = stripe.checkout.Session.create(
+                customer_email=current_user.email,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price': price_id,
+                    'quantity': 1,
+                }],
+                mode='subscription',
+                success_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/success",
+                cancel_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/cancel",
+                metadata={
+                    'user_id': current_user.id,
+                    'plan_type': 'subscription'
+                }
+            )
         
         return {"checkout_url": checkout_session.url}
     except Exception as e:
@@ -127,6 +155,17 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     elif event['type'] == 'customer.subscription.deleted':
         # Handle subscription cancellations
         pass
+    
+    elif event['type'] == 'checkout.session.completed':
+        # Handle one-time payment completion
+        session = event['data']['object']
+        user_id = session['metadata'].get('user_id')
+        plan_type = session['metadata'].get('plan_type')
+        
+        if user_id and plan_type == 'single_alert':
+            # Grant user single alert access
+            # Update user's alert limit to 1 for 30 days
+            pass
     
     return {"status": "success"}
 

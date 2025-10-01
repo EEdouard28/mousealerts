@@ -27,7 +27,8 @@ import {
   ArrowRightIcon,
   StarIcon,
   UserGroupIcon,
-  BoltIcon
+  BoltIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 
@@ -61,6 +62,25 @@ const PLANS: Plan[] = [
       alerts: 3,
       notifications: 'Email only',
       support: 'Basic'
+    }
+  },
+  {
+    id: 'single',
+    name: 'Single Alert',
+    price: 4.99,
+    interval: 'one-time',
+    features: [
+      '1 active alert',
+      'Email + SMS notifications',
+      'Priority support',
+      'Faster monitoring (5min intervals)',
+      'AI Prompt Bar access',
+      'Perfect for trying the service'
+    ],
+    limits: {
+      alerts: 1,
+      notifications: 'Email + SMS',
+      support: 'Priority'
     }
   },
   {
@@ -133,7 +153,11 @@ export default function BillingPage() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // In real implementation, this would redirect to Stripe checkout
-      toast.success(`Redirecting to payment for ${planId} plan...`);
+      if (planId === 'single') {
+        toast.success('Redirecting to single alert payment...');
+      } else {
+        toast.success(`Redirecting to ${planId} plan payment...`);
+      }
       
       // Mock redirect to Stripe checkout
       // window.location.href = checkoutUrl;
@@ -220,7 +244,7 @@ export default function BillingPage() {
           </div>
 
           {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {PLANS.map((plan) => (
               <div
                 key={plan.id}
@@ -239,6 +263,7 @@ export default function BillingPage() {
                 <div className="text-center mb-6">
                   <div className="flex items-center justify-center mb-2">
                     {plan.id === 'free' && <BoltIcon className="w-8 h-8 text-gray-400" />}
+                    {plan.id === 'single' && <SparklesIcon className="w-8 h-8 text-accent-500" />}
                     {plan.id === 'premium' && <StarIcon className="w-8 h-8 text-primary-500" />}
                     {plan.id === 'family' && <UserGroupIcon className="w-8 h-8 text-secondary-500" />}
                   </div>
