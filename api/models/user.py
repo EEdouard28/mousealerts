@@ -36,3 +36,4 @@ class User(Base):
     # Relationships
     alerts = relationship("Alert", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
+    admin_profile = relationship("Admin", back_populates="user", uselist=False)

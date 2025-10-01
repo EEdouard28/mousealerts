@@ -17,6 +17,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { PlanProvider } from '@/lib/plan';
+import { AlertLimitWarning, PlanUsageDisplay, UpgradeSuggestions } from '@/components/PlanEnforcement';
 import { 
   ArrowLeftIcon,
   MagnifyingGlassIcon,
@@ -289,7 +291,8 @@ export default function CreateAlertPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+      <PlanProvider>
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
         {/* Header */}
         <div className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -317,6 +320,11 @@ export default function CreateAlertPage() {
 
         {/* Form */}
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Plan Enforcement */}
+          <AlertLimitWarning />
+          <PlanUsageDisplay />
+          <UpgradeSuggestions />
+          
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Restaurant Selection */}
             <div className="card p-6">
@@ -552,6 +560,7 @@ export default function CreateAlertPage() {
           </form>
         </div>
       </div>
+      </PlanProvider>
     </ProtectedRoute>
   );
 }

@@ -69,25 +69,53 @@ async def get_current_subscription(
 @router.post("/create-checkout")
 async def create_checkout_session(
     price_id: str,
+    plan_type: str = "subscription",  # "subscription" or "one_time"
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Create Stripe checkout session for subscription"""
+    """Create Stripe checkout session for subscription or one-time payment"""
     try:
-        checkout_session = stripe.checkout.Session.create(
-            customer_email=current_user.email,
-            payment_method_types=['card'],
-            line_items=[{
-                'price': price_id,
-                'quantity': 1,
-            }],
-            mode='subscription',
-            success_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/success",
-            cancel_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/cancel",
-            metadata={
-                'user_id': current_user.id
-            }
-        )
+        if plan_type == "one_time":
+            # For single alert one-time payment
+            checkout_session = stripe.checkout.Session.create(
+                customer_email=current_user.email,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': 'Single Alert - MouseAlerts',
+                            'description': 'One-time payment for a single Disney dining alert'
+                        },
+                        'unit_amount': 499,  # $4.99 in cents
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/success?type=single",
+                cancel_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/cancel",
+                metadata={
+                    'user_id': current_user.id,
+                    'plan_type': 'single_alert'
+                }
+            )
+        else:
+            # For subscription plans
+            checkout_session = stripe.checkout.Session.create(
+                customer_email=current_user.email,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price': price_id,
+                    'quantity': 1,
+                }],
+                mode='subscription',
+                success_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/success",
+                cancel_url=f"{settings.MAGIC_LINK_BASE_URL}/billing/cancel",
+                metadata={
+                    'user_id': current_user.id,
+                    'plan_type': 'subscription'
+                }
+            )
         
         return {"checkout_url": checkout_session.url}
     except Exception as e:
@@ -117,16 +145,94 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         subscription = event['data']['object']
         user_id = subscription['metadata'].get('user_id')
         if user_id:
-            # Update user subscription in database
-            pass
+            # Create new subscription record
+            new_subscription = Subscription(
+                id=subscription['id'],
+                user_id=user_id,
+                plan_id=subscription['items']['data'][0]['price']['id'],
+                status=subscription['status'],
+                current_period_start=subscription['current_period_start'],
+                current_period_end=subscription['current_period_end'],
+                stripe_subscription_id=subscription['id']
+            )
+            db.add(new_subscription)
+            db.commit()
     
     elif event['type'] == 'customer.subscription.updated':
         # Handle subscription updates
-        pass
+        subscription = event['data']['object']
+        user_id = subscription['metadata'].get('user_id')
+        if user_id:
+            # Update existing subscription
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription['id']
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = subscription['status']
+                existing_subscription.current_period_start = subscription['current_period_start']
+                existing_subscription.current_period_end = subscription['current_period_end']
+                db.commit()
     
     elif event['type'] == 'customer.subscription.deleted':
         # Handle subscription cancellations
-        pass
+        subscription = event['data']['object']
+        user_id = subscription['metadata'].get('user_id')
+        if user_id:
+            # Mark subscription as cancelled
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription['id']
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = 'cancelled'
+                db.commit()
+    
+    elif event['type'] == 'checkout.session.completed':
+        # Handle one-time payments (Single Alert purchases)
+        session = event['data']['object']
+        user_id = session['metadata'].get('user_id')
+        payment_type = session['metadata'].get('type')
+        
+        if user_id and payment_type == 'single_alert':
+            # Grant user single alert access
+            # This could be implemented as a temporary plan or feature flag
+            # For now, we'll create a temporary subscription
+            temp_subscription = Subscription(
+                id=f"single_alert_{user_id}_{session['id']}",
+                user_id=user_id,
+                plan_id='single_alert',
+                status='active',
+                current_period_start=session['created'],
+                current_period_end=session['created'] + 86400,  # 24 hours
+                stripe_subscription_id=session['id']
+            )
+            db.add(temp_subscription)
+            db.commit()
+    
+    elif event['type'] == 'invoice.payment_succeeded':
+        # Handle successful payments
+        invoice = event['data']['object']
+        subscription_id = invoice.get('subscription')
+        if subscription_id:
+            # Update subscription status to active
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription_id
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = 'active'
+                db.commit()
+    
+    elif event['type'] == 'invoice.payment_failed':
+        # Handle failed payments
+        invoice = event['data']['object']
+        subscription_id = invoice.get('subscription')
+        if subscription_id:
+            # Update subscription status to past_due
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription_id
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = 'past_due'
+                db.commit()
     
     return {"status": "success"}
 
