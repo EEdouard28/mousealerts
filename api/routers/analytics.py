@@ -7,9 +7,10 @@ from sqlalchemy import func, and_, or_
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from db import get_db
-from middleware.admin_auth import verify_admin_access
+from middleware.auth import get_current_user
 from models.user import User
-from models.plan import Plan, Subscription
+from models.plan import Plan
+from models.subscription import Subscription
 from models.alert import Alert
 from models.notification import Notification
 from models.watcher_run import WatcherRun
@@ -23,13 +24,25 @@ from schemas.analytics import (
 
 router = APIRouter(prefix="/api/admin/analytics", tags=["admin", "analytics"])
 
+def is_admin(user: User) -> bool:
+    """Check if user has admin privileges"""
+    return (user.email in ["admin@mousealerts.app", "admin@mousealerts.com"] or 
+            (user.email.startswith("admin-") and user.email.endswith("@mousealerts.com")) or
+            (user.email.startswith("admin-") and user.email.endswith("@mousealerts.app")))  # Simple admin check
+
 
 @router.get("/revenue", response_model=RevenueAnalytics)
 async def get_revenue_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verify_admin_access)
+    current_user: User = Depends(get_current_user)
 ):
     """Get revenue analytics including MRR, conversion rates, and payment metrics"""
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
     try:
         # Calculate MRR (Monthly Recurring Revenue)
         active_subscriptions = db.query(Subscription).filter(
@@ -89,9 +102,15 @@ async def get_revenue_analytics(
 @router.get("/alerts", response_model=AlertMetrics)
 async def get_alert_metrics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verify_admin_access)
+    current_user: User = Depends(get_current_user)
 ):
     """Get alert monitoring metrics including success rates and performance"""
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
     try:
         # Total alerts
         total_alerts = db.query(Alert).count()
@@ -152,9 +171,15 @@ async def get_alert_metrics(
 @router.get("/system-health", response_model=SystemHealth)
 async def get_system_health(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verify_admin_access)
+    current_user: User = Depends(get_current_user)
 ):
     """Get system health indicators and performance metrics"""
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
     try:
         # API status (simplified - in real implementation, check actual services)
         api_status = "healthy"
@@ -203,9 +228,15 @@ async def get_system_health(
 @router.get("/dashboard", response_model=AdminDashboard)
 async def get_admin_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verify_admin_access)
+    current_user: User = Depends(get_current_user)
 ):
     """Get complete admin dashboard data"""
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
     try:
         # Get all metrics
         revenue_data = await get_revenue_analytics(db, current_user)

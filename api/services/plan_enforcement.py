@@ -27,6 +27,37 @@ from models.subscription import Subscription
 from models.plan import Plan
 from datetime import datetime, timedelta
 import json
+from dataclasses import dataclass
+
+@dataclass
+class PlanInfo:
+    """Plan information with limits"""
+    plan_id: str
+    plan_name: str
+    limits: Dict
+    subscription_id: Optional[str] = None
+    current_period_end: Optional[datetime] = None
+
+@dataclass
+class AlertUsage:
+    """Alert usage information"""
+    active_alerts: int
+    max_alerts: int
+    unlimited: bool
+    remaining: int
+    plan_name: str
+    total_alerts: int
+    paused_alerts: int
+    expired_alerts: int
+
+@dataclass
+class UpgradeSuggestion:
+    """Upgrade suggestion"""
+    type: str
+    title: str
+    description: str
+    upgrade_to: str
+    benefit: str
 
 class PlanEnforcement:
     """Service for enforcing subscription plan limits and restrictions"""
@@ -34,7 +65,7 @@ class PlanEnforcement:
     def __init__(self, db: Session):
         self.db = db
     
-    def get_user_plan(self, user_id: str) -> Dict:
+    def get_user_plan(self, user_id: str) -> PlanInfo:
         """Get user's current plan with limits"""
         # Get user's active subscription
         subscription = self.db.query(Subscription).filter(
@@ -55,20 +86,20 @@ class PlanEnforcement:
         if not plan:
             return self._get_free_plan()
         
-        return {
-            "plan_id": plan.id,
-            "plan_name": plan.name,
-            "limits": plan.limits,
-            "subscription_id": subscription.id,
-            "current_period_end": subscription.current_period_end
-        }
+        return PlanInfo(
+            plan_id=plan.id,
+            plan_name=plan.name,
+            limits=plan.limits,
+            subscription_id=subscription.id,
+            current_period_end=subscription.current_period_end
+        )
     
-    def _get_free_plan(self) -> Dict:
+    def _get_free_plan(self) -> PlanInfo:
         """Get free plan configuration"""
-        return {
-            "plan_id": "free",
-            "plan_name": "Free",
-            "limits": {
+        return PlanInfo(
+            plan_id="free",
+            plan_name="Free",
+            limits={
                 "alerts_per_user": 2,
                 "notification_channels": ["email"],
                 "instant_notifications": False,
@@ -76,16 +107,16 @@ class PlanEnforcement:
                 "priority_support": False,
                 "monitoring_interval": 15  # minutes
             },
-            "subscription_id": None,
-            "current_period_end": None
-        }
+            subscription_id=None,
+            current_period_end=None
+        )
     
-    def _get_single_alert_plan(self, subscription: Subscription) -> Dict:
+    def _get_single_alert_plan(self, subscription: Subscription) -> PlanInfo:
         """Get single alert plan configuration"""
-        return {
-            "plan_id": "single_alert",
-            "plan_name": "Single Alert",
-            "limits": {
+        return PlanInfo(
+            plan_id="single_alert",
+            plan_name="Single Alert",
+            limits={
                 "alerts_per_user": 1,
                 "notification_channels": ["email", "sms"],
                 "instant_notifications": True,
@@ -93,19 +124,19 @@ class PlanEnforcement:
                 "priority_support": True,
                 "monitoring_interval": 5  # minutes
             },
-            "subscription_id": subscription.id,
-            "current_period_end": subscription.current_period_end
-        }
+            subscription_id=subscription.id,
+            current_period_end=subscription.current_period_end
+        )
     
-    def can_create_alert(self, user_id: str) -> Tuple[bool, str, Dict]:
+    def can_create_alert(self, user_id: str) -> Tuple[bool, str, PlanInfo]:
         """
         Check if user can create a new alert based on their plan
         
         Returns:
-        - (can_create: bool, reason: str, plan_info: dict)
+        - (can_create: bool, reason: str, plan_info: PlanInfo)
         """
         plan_info = self.get_user_plan(user_id)
-        limits = plan_info["limits"]
+        limits = plan_info.limits
         
         # Count current active alerts
         active_alerts = self.db.query(Alert).filter(
@@ -122,30 +153,45 @@ class PlanEnforcement:
         
         return True, "allowed", plan_info
     
-    def get_alert_usage(self, user_id: str) -> Dict:
+    def get_alert_usage(self, user_id: str) -> AlertUsage:
         """Get user's current alert usage and limits"""
         plan_info = self.get_user_plan(user_id)
-        limits = plan_info["limits"]
+        limits = plan_info.limits
         
+        # Count different types of alerts
         active_alerts = self.db.query(Alert).filter(
             Alert.user_id == user_id,
             Alert.status == "active"
         ).count()
         
+        paused_alerts = self.db.query(Alert).filter(
+            Alert.user_id == user_id,
+            Alert.status == "paused"
+        ).count()
+        
+        expired_alerts = self.db.query(Alert).filter(
+            Alert.user_id == user_id,
+            Alert.status == "expired"
+        ).count()
+        
+        total_alerts = active_alerts + paused_alerts + expired_alerts
         max_alerts = limits.get("alerts_per_user", 0)
         
-        return {
-            "active_alerts": active_alerts,
-            "max_alerts": max_alerts,
-            "unlimited": max_alerts == -1,
-            "remaining": max_alerts - active_alerts if max_alerts != -1 else -1,
-            "plan_name": plan_info["plan_name"]
-        }
+        return AlertUsage(
+            active_alerts=active_alerts,
+            max_alerts=max_alerts,
+            unlimited=max_alerts == -1,
+            remaining=max_alerts - active_alerts if max_alerts != -1 else -1,
+            plan_name=plan_info.plan_name,
+            total_alerts=total_alerts,
+            paused_alerts=paused_alerts,
+            expired_alerts=expired_alerts
+        )
     
     def can_use_feature(self, user_id: str, feature: str) -> bool:
         """Check if user can use a specific feature"""
         plan_info = self.get_user_plan(user_id)
-        limits = plan_info["limits"]
+        limits = plan_info.limits
         
         feature_map = {
             "ai_prompt_bar": "ai_prompt_bar",
@@ -168,58 +214,58 @@ class PlanEnforcement:
     def get_notification_channels(self, user_id: str) -> List[str]:
         """Get allowed notification channels for user"""
         plan_info = self.get_user_plan(user_id)
-        return plan_info["limits"].get("notification_channels", ["email"])
+        return plan_info.limits.get("notification_channels", ["email"])
     
     def get_monitoring_interval(self, user_id: str) -> int:
         """Get monitoring interval in minutes for user's plan"""
         plan_info = self.get_user_plan(user_id)
-        return plan_info["limits"].get("monitoring_interval", 15)
+        return plan_info.limits.get("monitoring_interval", 15)
     
-    def get_upgrade_suggestions(self, user_id: str) -> List[Dict]:
+    def get_upgrade_suggestions(self, user_id: str) -> List[UpgradeSuggestion]:
         """Get upgrade suggestions based on current usage"""
         plan_info = self.get_user_plan(user_id)
-        current_plan = plan_info["plan_name"]
+        current_plan = plan_info.plan_name
         usage = self.get_alert_usage(user_id)
         
         suggestions = []
         
         # Alert limit suggestions
-        if usage["remaining"] <= 1 and current_plan == "Free":
-            suggestions.append({
-                "type": "alert_limit",
-                "title": "Need more alerts?",
-                "description": f"You've used {usage['active_alerts']}/{usage['max_alerts']} alerts. Upgrade for more!",
-                "upgrade_to": "Premium",
-                "benefit": "25 alerts + SMS notifications"
-            })
+        if usage.remaining <= 1 and current_plan == "Free":
+            suggestions.append(UpgradeSuggestion(
+                type="alert_limit",
+                title="Need more alerts?",
+                description=f"You've used {usage.active_alerts}/{usage.max_alerts} alerts. Upgrade for more!",
+                upgrade_to="Premium",
+                benefit="25 alerts + SMS notifications"
+            ))
         
         # Feature suggestions
         if not self.can_use_feature(user_id, "ai_prompt_bar") and current_plan == "Free":
-            suggestions.append({
-                "type": "feature",
-                "title": "Unlock AI Prompt Bar",
-                "description": "Describe your dining request in plain English",
-                "upgrade_to": "Premium",
-                "benefit": "AI-powered alert creation"
-            })
+            suggestions.append(UpgradeSuggestion(
+                type="feature",
+                title="Premium: Unlock AI Prompt Bar",
+                description="AI Prompt Bar - Describe your dining request in plain English",
+                upgrade_to="Premium",
+                benefit="AI-powered alert creation"
+            ))
         
         if not self.can_use_feature(user_id, "sms_notifications") and current_plan == "Free":
-            suggestions.append({
-                "type": "feature",
-                "title": "Get SMS notifications",
-                "description": "Never miss an alert with instant text messages",
-                "upgrade_to": "Premium",
-                "benefit": "Email + SMS notifications"
-            })
+            suggestions.append(UpgradeSuggestion(
+                type="feature",
+                title="Premium: Get SMS notifications",
+                description="Never miss an alert with instant text messages",
+                upgrade_to="Premium",
+                benefit="Email + SMS notifications"
+            ))
         
         return suggestions
     
-    def enforce_alert_creation(self, user_id: str) -> Tuple[bool, str, Optional[Dict]]:
+    def enforce_alert_creation(self, user_id: str) -> Tuple[bool, str, Optional[UpgradeSuggestion]]:
         """
         Enforce alert creation limits
         
         Returns:
-        - (allowed: bool, error_message: str, upgrade_suggestion: dict)
+        - (allowed: bool, error_message: str, upgrade_suggestion: UpgradeSuggestion)
         """
         can_create, reason, plan_info = self.can_create_alert(user_id)
         

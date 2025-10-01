@@ -35,6 +35,7 @@ from schemas.magic_link import (
     ErrorResponse
 )
 from services.sms import SMSService
+from middleware.auth import get_current_user
 
 router = APIRouter()
 
@@ -141,3 +142,23 @@ async def check_rate_limit(
     rate_limit_status = sms_service.get_rate_limit_status(db, phone)
     
     return RateLimitResponse(**rate_limit_status)
+
+@router.post("/logout")
+async def logout(current_user: User = Depends(get_current_user)):
+    """Logout current user (client-side token removal)"""
+    return {"message": "Logged out successfully"}
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user information"""
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        phone=current_user.phone,
+        is_active=current_user.is_active,
+        plan=current_user.plan,
+        subscription_status=current_user.subscription_status,
+        created_at=current_user.created_at
+    )

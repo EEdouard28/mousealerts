@@ -32,7 +32,7 @@ class Alert(Base):
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     park = Column(String, nullable=False)
-    venue = Column(String, nullable=False)
+    restaurant = Column(String, nullable=False)
     date = Column(DateTime, nullable=False)
     time_start = Column(String, nullable=False)
     time_end = Column(String, nullable=False)

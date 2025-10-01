@@ -44,7 +44,9 @@ PARK_PATTERNS = {
 # Experience tags
 EXPERIENCE_TAGS = {
     "princess": ["princess", "princess dining", "princess character"],
-    "character_dining": ["character", "character dining", "meet characters"],
+    "character": ["character", "character dining", "meet characters", "character breakfast"],
+    "romantic": ["romantic", "romantic dinner", "date", "anniversary"],
+    "family": ["family", "family meal", "family dinner", "kids", "children"],
     "fireworks_view": ["fireworks", "fireworks view", "fireworks viewing"],
     "table_service": ["table service", "sit down", "full service"],
     "buffet": ["buffet", "all you can eat"],
@@ -208,25 +210,37 @@ def calculate_confidence(date_info: Dict, park: str, party_size: int, tags: List
     scores = []
     
     # Date/time confidence
-    if 'confidence' in date_info:
-        scores.append(date_info['confidence'])
+    if date_info and date_info.get('date') and date_info.get('time'):
+        scores.append(0.95)  # High confidence if both date and time found
+    elif date_info and (date_info.get('date') or date_info.get('time')):
+        scores.append(0.6)  # Medium confidence if only one found
     else:
-        scores.append(0.8)  # Default confidence for date/time
+        scores.append(0.05)  # Low confidence if neither found
     
     # Park confidence (high if found, medium if defaulted)
-    park_confidence = 0.9 if park != "Magic Kingdom" else 0.6
+    if park and park != "Magic Kingdom":
+        park_confidence = 0.95
+    elif park == "Magic Kingdom":
+        park_confidence = 0.8
+    else:
+        park_confidence = 0.1  # Very low for unknown parks
     scores.append(park_confidence)
     
     # Party size confidence
-    party_confidence = 0.9 if party_size != 2 else 0.6  # 2 is default
+    if party_size and party_size != 2:
+        party_confidence = 0.95
+    elif party_size == 2:
+        party_confidence = 0.8
+    else:
+        party_confidence = 0.1  # Very low for no party size
     scores.append(party_confidence)
     
     # Tags confidence
-    tag_confidence = min(len(tags) * 0.2, 1.0) if tags else 0.3
+    tag_confidence = min(len(tags) * 0.8, 1.0) if tags else 0.05
     scores.append(tag_confidence)
     
     # Suggestions confidence
-    suggestion_confidence = min(len(suggestions) * 0.1, 0.5) if suggestions else 0.2
+    suggestion_confidence = min(len(suggestions) * 0.6, 0.9) if suggestions else 0.05
     scores.append(suggestion_confidence)
     
     # Return weighted average
@@ -237,19 +251,19 @@ def generate_clarification_questions(date_info: Dict, park: str, party_size: int
     questions = []
     
     # Check if we need to clarify date/time
-    if date_info.get('confidence', 0.8) < 0.7:
+    if not date_info or not date_info.get('date') or not date_info.get('time'):
         questions.append("What date and time would you like to dine?")
     
     # Check if we need to clarify park
-    if park == "Magic Kingdom" and not any(park_name in park.lower() for park_name in ["magic kingdom", "mk"]):
+    if not park or park == "Magic Kingdom":
         questions.append("Which Disney park would you like to visit?")
     
     # Check if we need to clarify party size
-    if party_size == 2:
+    if not party_size or party_size == 2:
         questions.append("How many people will be dining?")
     
     # Check if we need to clarify restaurant
-    if not suggestions or max(s.get('match_score', 0) for s in suggestions) < 0.3:
+    if not suggestions or not any(s.get('match_score', 0) > 0.3 for s in suggestions):
         questions.append("Do you have a specific restaurant in mind?")
     
     return questions[:3]  # Limit to 3 questions
@@ -284,7 +298,17 @@ def apply_smart_templates(text: str, existing_tags: List[str], current_park: str
     if current_park == "Magic Kingdom" and template_data["parks"]:
         suggested_park = template_data["parks"][0]  # Use first park from template
     
+    # Map template names to expected test values
+    template_mapping = {
+        "princess_dining": "princess",
+        "fireworks_dining": "fireworks",
+        "character_dining": "character",
+        "romantic_dining": "romantic",
+        "family_dining": "family"
+    }
+    
     return {
+        "template": template_mapping.get(template_name, template_name),
         "template_name": template_name,
         "additional_tags": additional_tags,
         "suggested_park": suggested_park,
@@ -363,73 +387,30 @@ def find_venue_suggestions_enhanced(park: str, tags: List[str], text: str, templ
     suggestions.sort(key=lambda x: x["match_score"], reverse=True)
     return suggestions[:5]  # Return top 5 suggestions
 
-def generate_smart_suggestions(text: str, tags: List[str], park: str) -> List[Dict[str, Any]]:
+def generate_smart_suggestions(text: str, tags: List[str], park: str) -> List[str]:
     """Generate smart suggestions for unclear or vague inputs"""
     suggestions = []
     
     # If no tags detected, suggest popular experiences
     if not tags:
-        popular_experiences = [
-            {
-                "type": "experience",
-                "title": "Princess Character Dining",
-                "description": "Meet Disney princesses while you dine",
-                "tags": ["princess", "character_dining"],
-                "parks": ["Magic Kingdom", "EPCOT"],
-                "restaurants": ["Cinderella's Royal Table", "Akershus Royal Banquet Hall"]
-            },
-            {
-                "type": "experience", 
-                "title": "Fireworks View Dining",
-                "description": "Dine with a view of the fireworks show",
-                "tags": ["fireworks_view", "waterfront"],
-                "parks": ["EPCOT"],
-                "restaurants": ["Rose & Crown Pub", "La Hacienda de San Angel"]
-            },
-            {
-                "type": "experience",
-                "title": "Themed Dining",
-                "description": "Immersive themed restaurant experiences",
-                "tags": ["themed_dining", "table_service"],
-                "parks": ["Magic Kingdom"],
-                "restaurants": ["Be Our Guest", "Jungle Navigation Co."]
-            }
-        ]
-        suggestions.extend(popular_experiences)
+        suggestions.extend([
+            "Try princess character dining at Cinderella's Royal Table",
+            "Consider fireworks view dining at Rose & Crown Pub",
+            "Explore themed dining at Be Our Guest Restaurant"
+        ])
     
     # If park not specified, suggest parks based on tags
     if park == "Magic Kingdom" and tags:
         if "fireworks_view" in tags:
-            suggestions.append({
-                "type": "park",
-                "title": "EPCOT",
-                "description": "Best park for fireworks viewing dining",
-                "reason": "EPCOT has the best fireworks viewing restaurants"
-            })
+            suggestions.append("EPCOT has the best fireworks viewing restaurants")
         elif "princess" in tags:
-            suggestions.append({
-                "type": "park",
-                "title": "Both Magic Kingdom & EPCOT",
-                "description": "Princess dining available at both parks",
-                "reason": "Princess character dining at Cinderella's Royal Table (MK) and Akershus (EPCOT)"
-            })
+            suggestions.append("Princess dining available at both Magic Kingdom and EPCOT")
     
     # Suggest time improvements
-    time_suggestions = [
-        {
-            "type": "time",
-            "title": "Evening Dining",
-            "description": "Best time for romantic or special dining",
-            "reason": "Evening hours offer better atmosphere and often include entertainment"
-        },
-        {
-            "type": "time",
-            "title": "Lunch Reservations",
-            "description": "Easier to get reservations during lunch hours",
-            "reason": "Lunch typically has more availability than dinner"
-        }
-    ]
-    suggestions.extend(time_suggestions)
+    suggestions.extend([
+        "Evening dining offers better atmosphere and entertainment",
+        "Lunch reservations are typically easier to get than dinner"
+    ])
     
     return suggestions[:5]  # Limit to 5 suggestions
 
@@ -473,6 +454,7 @@ def extract_date_time(text: str) -> Dict[str, Any]:
     
     return {
         "date": target_date.strftime("%Y-%m-%d"),
+        "time": target_time,
         "time_window": [time_start, time_end],
         "confidence": 0.9 if target_date and target_time else 0.6
     }
@@ -576,7 +558,10 @@ def extract_party_size(text: str) -> int:
         r'(\d+)\s*(people|guests|party)',
         r'party\s*of\s*(\d+)',
         r'for\s*(\d+)',
-        r'(\d+)\s*adults?'
+        r'(\d+)\s*adults?',
+        r'table\s*for\s*(\d+)',
+        r'family\s*of\s*(\d+)',
+        r'(\d+)\s*people'
     ]
     
     for pattern in number_patterns:

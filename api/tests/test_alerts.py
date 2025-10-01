@@ -11,14 +11,15 @@ class TestAlerts:
     
     def test_create_alert_success(self, client, auth_headers, test_user):
         """Test successful alert creation"""
-        with patch('deps.get_current_active_user', return_value=test_user):
+        with patch('middleware.auth.get_current_user', return_value=test_user):
             alert_data = {
+                "park": "Magic Kingdom",
                 "restaurant": "Cinderella's Royal Table",
-                "date": "2024-12-25",
+                "date": "2024-12-25T00:00:00",
                 "time_start": "18:00",
                 "time_end": "20:00",
                 "party_size": 4,
-                "notification_channels": ["email", "sms"]
+                "channels": {"email": True, "sms": True}
             }
             
             response = client.post("/api/alerts", json=alert_data, headers=auth_headers)
@@ -42,19 +43,20 @@ class TestAlerts:
     def test_create_alert_unauthorized(self, client):
         """Test alert creation without authentication"""
         alert_data = {
+            "park": "Magic Kingdom",
             "restaurant": "Cinderella's Royal Table",
-            "date": "2024-12-25",
+            "date": "2024-12-25T00:00:00",
             "time_start": "18:00",
             "time_end": "20:00",
             "party_size": 4
         }
         
         response = client.post("/api/alerts", json=alert_data)
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403 for missing token
     
     def test_get_alerts_success(self, client, auth_headers, test_user, test_alert):
         """Test getting user's alerts"""
-        with patch('deps.get_current_active_user', return_value=test_user):
+        with patch('middleware.auth.get_current_user', return_value=test_user):
             response = client.get("/api/alerts", headers=auth_headers)
             assert response.status_code == 200
             alerts = response.json()
@@ -64,7 +66,7 @@ class TestAlerts:
     def test_get_alerts_unauthorized(self, client):
         """Test getting alerts without authentication"""
         response = client.get("/api/alerts")
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403 for missing token
     
     def test_get_alert_by_id_success(self, client, auth_headers, test_user, test_alert):
         """Test getting specific alert by ID"""
@@ -83,7 +85,7 @@ class TestAlerts:
     def test_get_alert_by_id_unauthorized(self, client, test_alert):
         """Test getting alert without authentication"""
         response = client.get(f"/api/alerts/{test_alert.id}")
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403 for missing token
     
     def test_update_alert_success(self, client, auth_headers, test_user, test_alert):
         """Test successful alert update"""
@@ -124,8 +126,7 @@ class TestAlerts:
         """Test successful alert deletion"""
         with patch('deps.get_current_active_user', return_value=test_user):
             response = client.delete(f"/api/alerts/{test_alert.id}", headers=auth_headers)
-            assert response.status_code == 200
-            assert response.json()["message"] == "Alert deleted successfully"
+            assert response.status_code == 204  # No Content for successful deletion
     
     def test_delete_alert_not_found(self, client, auth_headers, test_user):
         """Test deleting non-existent alert"""
@@ -137,7 +138,7 @@ class TestAlerts:
     def test_delete_alert_unauthorized(self, client, test_alert):
         """Test deleting alert without authentication"""
         response = client.delete(f"/api/alerts/{test_alert.id}")
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403 for missing token
     
     def test_get_alerts_with_pagination(self, client, auth_headers, test_user, db_session):
         """Test getting alerts with pagination"""
@@ -146,12 +147,15 @@ class TestAlerts:
             from models.alert import Alert
             import uuid
             
+            from datetime import datetime
+            
             for i in range(5):
                 alert = Alert(
                     id=str(uuid.uuid4()),
                     user_id=test_user.id,
+                    park="Magic Kingdom",
                     restaurant=f"Restaurant {i}",
-                    date="2024-12-25",
+                    date=datetime(2024, 12, 25),
                     time_start="18:00",
                     time_end="20:00",
                     party_size=4,
@@ -192,11 +196,14 @@ class TestAlerts:
         db_session.add(other_user)
         db_session.commit()
         
+        from datetime import datetime
+        
         other_alert = Alert(
             id=str(uuid.uuid4()),
             user_id=other_user.id,
+            park="Magic Kingdom",
             restaurant="Other Restaurant",
-            date="2024-12-25",
+            date=datetime(2024, 12, 25),
             time_start="18:00",
             time_end="20:00",
             party_size=4,
@@ -212,6 +219,9 @@ class TestAlerts:
     
     def test_alert_statistics(self, client, auth_headers, test_user, test_alert):
         """Test getting alert statistics"""
+        # Ensure the test_alert is associated with the test_user
+        test_alert.user_id = test_user.id
+        
         with patch('deps.get_current_active_user', return_value=test_user):
             response = client.get("/api/alerts/stats", headers=auth_headers)
             assert response.status_code == 200

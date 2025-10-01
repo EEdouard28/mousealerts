@@ -25,6 +25,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: str
+    phone: str
     created_at: datetime
     is_active: bool
     plan: str

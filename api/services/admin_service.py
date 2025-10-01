@@ -100,20 +100,20 @@ class AdminService:
             "is_active": admin.is_active
         }
     
-    def create_admin(self, user_id: str, role: str = "admin", permissions: Dict = None) -> bool:
+    def create_admin(self, user_id: str, role: str = "admin", permissions: Dict = None) -> Admin:
         """Create admin access for user"""
         try:
             # Check if user exists
             user = self.db.query(User).filter(User.id == user_id).first()
             if not user:
                 logger.error(f"User {user_id} not found for admin creation")
-                return False
+                raise ValueError(f"User with ID {user_id} not found")
             
             # Check if already admin
             existing_admin = self.db.query(Admin).filter(Admin.user_id == user_id).first()
             if existing_admin:
                 logger.warning(f"User {user_id} already has admin access")
-                return False
+                raise ValueError(f"User {user_id} is already an admin")
             
             # Create admin record
             admin = Admin(
@@ -131,12 +131,12 @@ class AdminService:
             self.db.commit()
             
             logger.info(f"Admin access created for user {user_id} with role {role}")
-            return True
+            return admin
             
         except Exception as e:
             logger.error(f"Failed to create admin for user {user_id}: {str(e)}")
             self.db.rollback()
-            return False
+            raise
     
     def update_admin_permissions(self, user_id: str, permissions: Dict) -> bool:
         """Update admin permissions"""
@@ -198,6 +198,58 @@ class AdminService:
             }
             for admin, user in admins
         ]
+    
+    def is_super_admin(self, user_id: str) -> bool:
+        """Check if user is a super admin"""
+        admin = self.db.query(Admin).filter(
+            Admin.user_id == user_id,
+            Admin.is_active == True
+        ).first()
+        return admin and admin.role == "super_admin"
+    
+    def update_admin_role(self, user_id: str, role: str) -> Admin:
+        """Update admin role"""
+        try:
+            admin = self.db.query(Admin).filter(
+                Admin.user_id == user_id,
+                Admin.is_active == True
+            ).first()
+            
+            if not admin:
+                raise ValueError(f"Admin {user_id} not found")
+            
+            admin.role = role
+            # Update permissions based on role
+            admin.permissions["admin_management"] = role == "super_admin"
+            self.db.commit()
+            
+            logger.info(f"Admin role updated for user {user_id} to {role}")
+            return admin
+            
+        except Exception as e:
+            logger.error(f"Failed to update admin role for user {user_id}: {str(e)}")
+            self.db.rollback()
+            raise
+    
+    def delete_admin(self, user_id: str) -> bool:
+        """Delete admin access"""
+        try:
+            admin = self.db.query(Admin).filter(Admin.user_id == user_id).first()
+            
+            if not admin:
+                logger.error(f"Admin {user_id} not found for deletion")
+                return False
+            
+            self.db.delete(admin)
+            self.db.commit()
+            
+            logger.info(f"Admin access deleted for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to delete admin for user {user_id}: {str(e)}")
+            self.db.rollback()
+            return False
     
     def log_admin_action(self, user_id: str, action: str, details: str = None):
         """Log admin action for security auditing"""

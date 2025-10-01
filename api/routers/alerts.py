@@ -140,13 +140,11 @@ async def create_alert(
             restaurant=alert_data.restaurant,
             park=alert_data.park,
             date=alert_data.date,
-            time=alert_data.time,
+            time_start=alert_data.time_start,
+            time_end=alert_data.time_end,
             party_size=alert_data.party_size,
-            notifications_sms=alert_data.notifications.get('sms', True) and 'sms' in allowed_channels,
-            notifications_email=alert_data.notifications.get('email', True) and 'email' in allowed_channels,
-            notifications_push=alert_data.notifications.get('push', True) and 'push' in allowed_channels,
-            notes=alert_data.notes,
-            status='active'
+            status='active',
+            channels=alert_data.channels
         )
         
         db.add(alert)

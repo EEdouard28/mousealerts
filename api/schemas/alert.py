@@ -14,13 +14,14 @@ These schemas ensure proper validation of park names, venue names,
 date/time formats, and party sizes.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from datetime import datetime
 from typing import Optional, Dict, Any
+import re
 
 class AlertBase(BaseModel):
     park: str
-    venue: str
+    restaurant: str
     date: datetime
     time_start: str
     time_end: str
@@ -32,13 +33,27 @@ class AlertCreate(AlertBase):
 
 class AlertUpdate(BaseModel):
     park: Optional[str] = None
-    venue: Optional[str] = None
+    restaurant: Optional[str] = None
     date: Optional[datetime] = None
     time_start: Optional[str] = None
     time_end: Optional[str] = None
     party_size: Optional[int] = None
     status: Optional[str] = None
     channels: Optional[Dict[str, Any]] = None
+    
+    @validator('party_size')
+    def validate_party_size(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('Party size must be greater than 0')
+        return v
+    
+    @validator('time_start', 'time_end')
+    def validate_time_format(cls, v):
+        if v is not None:
+            # Validate time format (HH:MM)
+            if not re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', v):
+                raise ValueError('Time must be in HH:MM format (24-hour)')
+        return v
 
 class AlertResponse(AlertBase):
     id: str
