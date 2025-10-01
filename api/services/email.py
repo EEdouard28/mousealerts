@@ -25,6 +25,24 @@ logger = logging.getLogger(__name__)
 # Initialize SendGrid client
 sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
 
+class EmailService:
+    """Email service class for handling all email operations"""
+    
+    def __init__(self):
+        self.sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
+    
+    async def send_magic_link_email(self, email: str, magic_link: str):
+        """Send magic link email for authentication"""
+        return await send_magic_link_email(email, magic_link)
+    
+    async def send_alert_notification(self, email: str, alert_data: dict):
+        """Send alert notification when reservation is found"""
+        return await send_alert_notification(email, alert_data)
+    
+    async def send_system_notification(self, email: str, subject: str, content: str):
+        """Send system notification (plan changes, billing, etc.)"""
+        return await send_system_notification(email, subject, content)
+
 async def send_magic_link_email(email: str, magic_link: str):
     """Send magic link email for authentication"""
     try:

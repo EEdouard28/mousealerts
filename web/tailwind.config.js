@@ -158,7 +158,7 @@ module.exports = {
         },
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-20px)' },
+          '50%': { transform: 'translateY(-5px)' },
         },
         glow: {
           '0%': { boxShadow: '0 0 5px rgba(249, 115, 22, 0.5)' },

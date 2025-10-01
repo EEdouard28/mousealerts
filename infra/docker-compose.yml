@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15
@@ -38,6 +36,18 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg://mousealerts:mousealerts@db:5432/mousealerts
       - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - TWILIO_ACCOUNT_SID=dev-account-sid
+      - TWILIO_AUTH_TOKEN=dev-auth-token
+      - TWILIO_PHONE_NUMBER=+1234567890
+      - SENDGRID_API_KEY=dev-sendgrid-key
+      - STRIPE_SECRET_KEY=dev-stripe-secret
+      - STRIPE_WEBHOOK_SECRET=dev-stripe-webhook
+      - SENTRY_DSN=
+      - ENVIRONMENT=development
+      - DISPLAY=:99
     depends_on:
       db:
         condition: service_healthy
@@ -45,6 +55,8 @@ services:
         condition: service_healthy
     volumes:
       - ../api:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    shm_size: 2gb
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   web:
@@ -54,7 +66,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NEXT_PUBLIC_API_BASE=http://api:8000
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
     volumes:
       - ../web:/app
       - /app/node_modules
