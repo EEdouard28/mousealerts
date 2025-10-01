@@ -201,6 +201,13 @@ export default function CreateAlertPage() {
     setShowRestaurantList(false);
   };
 
+  // Close dropdown when clicking outside
+  const handleClickOutside = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setShowRestaurantList(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -339,25 +346,6 @@ export default function CreateAlertPage() {
                   />
                 </div>
                 
-                {showRestaurantList && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                    {filteredRestaurants.length > 0 ? (
-                      filteredRestaurants.map((restaurant) => (
-                        <button
-                          key={restaurant.id}
-                          type="button"
-                          onClick={() => handleRestaurantSelect(restaurant)}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="font-medium text-gray-900">{restaurant.name}</div>
-                          <div className="text-sm text-gray-500">{restaurant.park} • {restaurant.type}</div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-gray-500">No restaurants found</div>
-                    )}
-                  </div>
-                )}
               </div>
               
               {errors.restaurant && (
@@ -374,6 +362,29 @@ export default function CreateAlertPage() {
                 </div>
               )}
             </div>
+            
+            {/* Restaurant Dropdown - Outside the card */}
+            {showRestaurantList && (
+              <div className="relative z-50 -mt-6">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                  {filteredRestaurants.length > 0 ? (
+                    filteredRestaurants.map((restaurant) => (
+                      <button
+                        key={restaurant.id}
+                        type="button"
+                        onClick={() => handleRestaurantSelect(restaurant)}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-gray-900">{restaurant.name}</div>
+                        <div className="text-sm text-gray-500">{restaurant.park} • {restaurant.type}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-gray-500">No restaurants found</div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Date and Time */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
