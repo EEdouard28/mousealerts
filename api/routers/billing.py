@@ -145,27 +145,94 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         subscription = event['data']['object']
         user_id = subscription['metadata'].get('user_id')
         if user_id:
-            # Update user subscription in database
-            pass
+            # Create new subscription record
+            new_subscription = Subscription(
+                id=subscription['id'],
+                user_id=user_id,
+                plan_id=subscription['items']['data'][0]['price']['id'],
+                status=subscription['status'],
+                current_period_start=subscription['current_period_start'],
+                current_period_end=subscription['current_period_end'],
+                stripe_subscription_id=subscription['id']
+            )
+            db.add(new_subscription)
+            db.commit()
     
     elif event['type'] == 'customer.subscription.updated':
         # Handle subscription updates
-        pass
+        subscription = event['data']['object']
+        user_id = subscription['metadata'].get('user_id')
+        if user_id:
+            # Update existing subscription
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription['id']
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = subscription['status']
+                existing_subscription.current_period_start = subscription['current_period_start']
+                existing_subscription.current_period_end = subscription['current_period_end']
+                db.commit()
     
     elif event['type'] == 'customer.subscription.deleted':
         # Handle subscription cancellations
-        pass
+        subscription = event['data']['object']
+        user_id = subscription['metadata'].get('user_id')
+        if user_id:
+            # Mark subscription as cancelled
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription['id']
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = 'cancelled'
+                db.commit()
     
     elif event['type'] == 'checkout.session.completed':
-        # Handle one-time payment completion
+        # Handle one-time payments (Single Alert purchases)
         session = event['data']['object']
         user_id = session['metadata'].get('user_id')
-        plan_type = session['metadata'].get('plan_type')
+        payment_type = session['metadata'].get('type')
         
-        if user_id and plan_type == 'single_alert':
+        if user_id and payment_type == 'single_alert':
             # Grant user single alert access
-            # Update user's alert limit to 1 for 30 days
-            pass
+            # This could be implemented as a temporary plan or feature flag
+            # For now, we'll create a temporary subscription
+            temp_subscription = Subscription(
+                id=f"single_alert_{user_id}_{session['id']}",
+                user_id=user_id,
+                plan_id='single_alert',
+                status='active',
+                current_period_start=session['created'],
+                current_period_end=session['created'] + 86400,  # 24 hours
+                stripe_subscription_id=session['id']
+            )
+            db.add(temp_subscription)
+            db.commit()
+    
+    elif event['type'] == 'invoice.payment_succeeded':
+        # Handle successful payments
+        invoice = event['data']['object']
+        subscription_id = invoice.get('subscription')
+        if subscription_id:
+            # Update subscription status to active
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription_id
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = 'active'
+                db.commit()
+    
+    elif event['type'] == 'invoice.payment_failed':
+        # Handle failed payments
+        invoice = event['data']['object']
+        subscription_id = invoice.get('subscription')
+        if subscription_id:
+            # Update subscription status to past_due
+            existing_subscription = db.query(Subscription).filter(
+                Subscription.stripe_subscription_id == subscription_id
+            ).first()
+            if existing_subscription:
+                existing_subscription.status = 'past_due'
+                db.commit()
     
     return {"status": "success"}
 
