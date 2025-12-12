@@ -15,7 +15,8 @@ All settings can be overridden via environment variables or .env file.
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 import os
 
 class Settings(BaseSettings):
@@ -37,8 +38,24 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 30
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
-    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1"]
+    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:3001"]
+    ALLOWED_HOSTS: Union[List[str], str] = ["localhost", "127.0.0.1"]
+    
+    @field_validator('ALLOWED_ORIGINS', mode='before')
+    @classmethod
+    def parse_origins(cls, v):
+        if isinstance(v, str):
+            # Handle comma-separated string
+            return [origin.strip() for origin in v.split(',')]
+        return v
+    
+    @field_validator('ALLOWED_HOSTS', mode='before')
+    @classmethod
+    def parse_hosts(cls, v):
+        if isinstance(v, str):
+            # Handle comma-separated string
+            return [host.strip() for host in v.split(',')]
+        return v
     
     # Notifications
     SENDGRID_API_KEY: str = ""
