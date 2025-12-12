@@ -35,6 +35,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -145,9 +146,9 @@ class DisneyWebScraper:
                 # 2. Try Standard Chrome
                 elif not chrome_bin:
                     logger.info("Trying standard Chrome setup")
-                    service = Service(ChromeDriverManager().install())
-                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                    logger.info("Chrome driver setup completed")
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                logger.info("Chrome driver setup completed")
 
             except Exception as chrome_error:
                 logger.warning(f"Standard Chrome setup failed: {chrome_error}, trying Chromium fallbacks")
@@ -163,14 +164,18 @@ class DisneyWebScraper:
                         logger.info(f"Found Chromium at {found_bin} and driver at {found_driver}")
                         chrome_options.binary_location = found_bin
                         service = Service(found_driver)
-                        self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                        logger.info("Chromium driver setup completed")
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    logger.info("Chromium driver setup completed")
                     else:
                         raise WebDriverException("Could not find Chromium or Chromedriver binaries")
                         
                 except Exception as chromium_error:
                     logger.error(f"All driver setup attempts failed. Last error: {chromium_error}")
                     raise
+            
+            # Set timeouts from configuration
+            self.driver.set_page_load_timeout(settings.SCRAPER_PAGE_LOAD_TIMEOUT)
+            self.driver.implicitly_wait(settings.SCRAPER_IMPLICIT_WAIT)
             
             # Execute script to remove webdriver property
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -230,7 +235,7 @@ class DisneyWebScraper:
                 return []
             
             # Wait for search elements to load
-            wait = WebDriverWait(self.driver, 10)
+            wait = WebDriverWait(self.driver, settings.SCRAPER_ELEMENT_WAIT_TIMEOUT)
             
             # Find and fill search box
             search_box = wait.until(
@@ -274,7 +279,7 @@ class DisneyWebScraper:
         
         try:
             # Wait for results to load
-            wait = WebDriverWait(self.driver, 10)
+            wait = WebDriverWait(self.driver, settings.SCRAPER_ELEMENT_WAIT_TIMEOUT)
             results_container = wait.until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='search-results']"))
             )
@@ -340,7 +345,7 @@ class DisneyWebScraper:
             await self._random_delay(2.0, 4.0)
             
             # Wait for page to load
-            wait = WebDriverWait(self.driver, 15)
+            wait = WebDriverWait(self.driver, settings.SCRAPER_ELEMENT_WAIT_TIMEOUT)
             
             # Find and click "Check Availability" button
             try:
@@ -432,7 +437,7 @@ class DisneyWebScraper:
         
         try:
             # Wait for results to load
-            wait = WebDriverWait(self.driver, 10)
+            wait = WebDriverWait(self.driver, settings.SCRAPER_ELEMENT_WAIT_TIMEOUT)
             
             # Look for availability indicators
             soup = BeautifulSoup(self.driver.page_source, 'html.parser')

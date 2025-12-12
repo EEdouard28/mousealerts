@@ -11,15 +11,20 @@ This is the entry point for the MouseAlerts API server. It:
 Usage: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
+import uuid
+import logging
 
 from config import settings
 from db import engine, Base
 from routers import auth, alerts, admin, nlu, push, billing, worker, scraping_worker, analytics
+
+logger = logging.getLogger(__name__)
 
 # Initialize Sentry
 if settings.APP_ENV == "production":
@@ -51,6 +56,24 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=settings.ALLOWED_HOSTS
 )
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Middleware to add request ID to all requests for log correlation"""
+    async def dispatch(self, request: Request, call_next):
+        # Generate or use existing request ID
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        request.state.request_id = request_id
+        
+        # Add request ID to response headers
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        
+        # Add request ID to logger context
+        logger.info(f"Request {request_id}: {request.method} {request.url.path}")
+        
+        return response
+
+app.add_middleware(RequestIDMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

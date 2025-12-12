@@ -263,15 +263,99 @@ export default function CreateAlertPage() {
       return;
     }
 
+    if (!selectedRestaurant) {
+      toast.error('Please select a restaurant');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get auth token
+      const authToken = localStorage.getItem('auth_token');
+      if (!authToken) {
+        toast.error('Please log in to create alerts');
+        router.push('/auth/login');
+        return;
+      }
+
+      // Convert time to time_start and time_end (30 minute window)
+      const parseTime = (timeStr: string): { start: string; end: string } => {
+        const [time, period] = timeStr.split(' ');
+        const [hours, minutes] = time.split(':').map(Number);
+        let hour24 = hours;
+        if (period === 'PM' && hours !== 12) hour24 += 12;
+        if (period === 'AM' && hours === 12) hour24 = 0;
+        
+        // Start time: 30 minutes before
+        const startDate = new Date();
+        startDate.setHours(hour24, minutes - 30, 0, 0);
+        const startMinutes = startDate.getMinutes();
+        const startHours = startDate.getHours();
+        const startPeriod = startHours >= 12 ? 'PM' : 'AM';
+        const startHour12 = startHours > 12 ? startHours - 12 : (startHours === 0 ? 12 : startHours);
+        const startStr = `${startHour12}:${startMinutes.toString().padStart(2, '0')} ${startPeriod}`;
+        
+        // End time: 30 minutes after
+        const endDate = new Date();
+        endDate.setHours(hour24, minutes + 30, 0, 0);
+        const endMinutes = endDate.getMinutes();
+        const endHours = endDate.getHours();
+        const endPeriod = endHours >= 12 ? 'PM' : 'AM';
+        const endHour12 = endHours > 12 ? endHours - 12 : (endHours === 0 ? 12 : endHours);
+        const endStr = `${endHour12}:${endMinutes.toString().padStart(2, '0')} ${endPeriod}`;
+        
+        return { start: startStr, end: endStr };
+      };
+
+      const timeWindow = parseTime(formData.time);
       
-      toast.success('Alert created successfully! 🎉');
-      router.push('/dashboard');
+      // Convert date to ISO datetime format
+      const dateTime = new Date(`${formData.date}T12:00:00`).toISOString();
+
+      // Prepare API payload
+      const payload = {
+        venue: selectedRestaurant.name,
+        park: selectedRestaurant.park,
+        date: dateTime,
+        time_start: timeWindow.start,
+        time_end: timeWindow.end,
+        party_size: formData.partySize,
+        channels: {
+          sms: formData.notifications.sms,
+          email: formData.notifications.email,
+          push: formData.notifications.push
+        }
+      };
+
+      const response = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Alert created successfully! 🎉');
+        router.push('/dashboard');
+      } else {
+        if (response.status === 403 && data.detail?.error) {
+          toast.error(data.detail.error);
+          if (data.detail.upgrade_suggestion) {
+            setTimeout(() => {
+              router.push('/billing');
+            }, 2000);
+          }
+        } else {
+          toast.error(data.detail || 'Failed to create alert. Please try again.');
+        }
+      }
     } catch (error) {
+      console.error('Alert creation error:', error);
       toast.error('Failed to create alert. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -342,9 +426,10 @@ export default function CreateAlertPage() {
                       setShowRestaurantList(true);
                     }}
                     onFocus={() => setShowRestaurantList(true)}
+                    disabled={isSubmitting}
                     className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white ${
                       errors.restaurant ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{
                       WebkitAppearance: 'none',
                       MozAppearance: 'none',
@@ -406,9 +491,10 @@ export default function CreateAlertPage() {
                     onChange={(e) => handleInputChange('date', e.target.value)}
                     min={getMinDate()}
                     max={getMaxDate()}
+                    disabled={isSubmitting}
                     className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white ${
                       errors.date ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{
                       WebkitAppearance: 'none',
                       MozAppearance: 'none',
@@ -429,9 +515,10 @@ export default function CreateAlertPage() {
                   <select
                     value={formData.time}
                     onChange={(e) => handleInputChange('time', e.target.value)}
+                    disabled={isSubmitting}
                     className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white ${
                       errors.time ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{
                       WebkitAppearance: 'none',
                       MozAppearance: 'none',
@@ -460,7 +547,10 @@ export default function CreateAlertPage() {
                   <button
                     type="button"
                     onClick={() => handleInputChange('partySize', Math.max(1, formData.partySize - 1))}
-                    className="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-primary-500 transition-colors"
+                    disabled={isSubmitting}
+                    className={`w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-primary-500 transition-colors ${
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     <span className="text-gray-600">-</span>
                   </button>
@@ -468,7 +558,10 @@ export default function CreateAlertPage() {
                   <button
                     type="button"
                     onClick={() => handleInputChange('partySize', Math.min(20, formData.partySize + 1))}
-                    className="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-primary-500 transition-colors"
+                    disabled={isSubmitting}
+                    className={`w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-primary-500 transition-colors ${
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     <span className="text-gray-600">+</span>
                   </button>
@@ -489,7 +582,10 @@ export default function CreateAlertPage() {
                     type="checkbox"
                     checked={formData.notifications.sms}
                     onChange={(e) => handleNotificationChange('sms', e.target.checked)}
-                    className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    disabled={isSubmitting}
+                    className={`w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 ${
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   />
                   <div className="flex items-center space-x-2">
                     <BellIcon className="w-5 h-5 text-gray-400" />
@@ -502,7 +598,10 @@ export default function CreateAlertPage() {
                     type="checkbox"
                     checked={formData.notifications.push}
                     onChange={(e) => handleNotificationChange('push', e.target.checked)}
-                    className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    disabled={isSubmitting}
+                    className={`w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 ${
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   />
                   <div className="flex items-center space-x-2">
                     <BellIcon className="w-5 h-5 text-gray-400" />
@@ -520,7 +619,10 @@ export default function CreateAlertPage() {
                 onChange={(e) => handleInputChange('notes', e.target.value)}
                 placeholder="Any special requests or notes for this alert..."
                 rows={3}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white resize-none"
+                disabled={isSubmitting}
+                className={`w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white resize-none ${
+                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
                 style={{
                   WebkitAppearance: 'none',
                   MozAppearance: 'none',

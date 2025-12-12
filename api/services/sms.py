@@ -97,10 +97,10 @@ Expires in 15 minutes. Reply STOP to opt out."""
             return message_obj.sid is not None
             
         except TwilioException as e:
-            print(f"Twilio SMS error: {e}")
+            logger.error(f"Twilio SMS error: {e}")
             return False
         except Exception as e:
-            print(f"SMS sending error: {e}")
+            logger.error(f"SMS sending error: {e}")
             return False
     
     def verify_magic_link_token(

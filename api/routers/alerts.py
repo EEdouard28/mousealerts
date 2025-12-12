@@ -77,7 +77,7 @@ async def get_alerts(
             query = query.filter(Alert.park.ilike(f"%{park_filter}%"))
         
         if restaurant_filter:
-            query = query.filter(Alert.restaurant.ilike(f"%{restaurant_filter}%"))
+            query = query.filter(Alert.venue.ilike(f"%{restaurant_filter}%"))
         
         # Order by creation date (newest first)
         query = query.order_by(desc(Alert.created_at))
@@ -133,19 +133,35 @@ async def create_alert(
         # Check notification channel permissions
         allowed_channels = plan_enforcement.get_notification_channels(current_user.id)
         
+        # Build channels JSON from notification preferences
+        # Use channels from request if provided, otherwise default based on plan
+        channels = alert_data.channels or {}
+        if not channels:
+            # Default channels based on plan permissions
+            channels = {
+                'sms': 'sms' in allowed_channels,
+                'email': 'email' in allowed_channels,
+                'push': 'push' in allowed_channels
+            }
+        else:
+            # Filter channels based on plan permissions
+            channels = {
+                'sms': channels.get('sms', False) and 'sms' in allowed_channels,
+                'email': channels.get('email', False) and 'email' in allowed_channels,
+                'push': channels.get('push', False) and 'push' in allowed_channels
+            }
+        
         # Create new alert with plan-aware notifications
         alert = Alert(
             id=str(uuid.uuid4()),
             user_id=current_user.id,
-            restaurant=alert_data.restaurant,
+            venue=alert_data.venue,
             park=alert_data.park,
             date=alert_data.date,
-            time=alert_data.time,
+            time_start=alert_data.time_start,
+            time_end=alert_data.time_end,
             party_size=alert_data.party_size,
-            notifications_sms=alert_data.notifications.get('sms', True) and 'sms' in allowed_channels,
-            notifications_email=alert_data.notifications.get('email', True) and 'email' in allowed_channels,
-            notifications_push=alert_data.notifications.get('push', True) and 'push' in allowed_channels,
-            notes=alert_data.notes,
+            channels=channels,
             status='active'
         )
         

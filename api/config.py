@@ -15,7 +15,7 @@ All settings can be overridden via environment variables or .env file.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, model_validator, computed_field, Field
 from typing import List, Union
 import os
 
@@ -37,25 +37,56 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 30
     
-    # CORS
-    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:3001"]
-    ALLOWED_HOSTS: Union[List[str], str] = ["localhost", "127.0.0.1"]
+    @model_validator(mode='after')
+    def validate_production_settings(self):
+        """Ensure production settings are secure"""
+        if self.APP_ENV == 'production' and self.JWT_SECRET == 'changeme':
+            raise ValueError('JWT_SECRET must be changed from default value in production')
+        return self
     
-    @field_validator('ALLOWED_ORIGINS', mode='before')
-    @classmethod
-    def parse_origins(cls, v):
-        if isinstance(v, str):
-            # Handle comma-separated string
-            return [origin.strip() for origin in v.split(',')]
-        return v
+    # CORS - Store as string to avoid JSON parsing issues, use Field alias for env var mapping
+    _allowed_origins_str: str = Field(
+        default="http://localhost:3000,http://localhost:3001",
+        alias="ALLOWED_ORIGINS"
+    )
+    _allowed_hosts_str: str = Field(
+        default="localhost,127.0.0.1",
+        alias="ALLOWED_HOSTS"
+    )
     
-    @field_validator('ALLOWED_HOSTS', mode='before')
+    @field_validator('_allowed_origins_str', mode='before')
     @classmethod
-    def parse_hosts(cls, v):
+    def parse_origins_input(cls, v):
+        """Handle both string and list inputs for ALLOWED_ORIGINS"""
+        if isinstance(v, list):
+            return ','.join(str(item) for item in v)
         if isinstance(v, str):
-            # Handle comma-separated string
-            return [host.strip() for host in v.split(',')]
-        return v
+            return v
+        return "http://localhost:3000"
+    
+    @field_validator('_allowed_hosts_str', mode='before')
+    @classmethod
+    def parse_hosts_input(cls, v):
+        """Handle both string and list inputs for ALLOWED_HOSTS"""
+        if isinstance(v, list):
+            return ','.join(str(item) for item in v)
+        if isinstance(v, str):
+            return v
+        return "localhost"
+    
+    @computed_field
+    @property
+    def ALLOWED_ORIGINS(self) -> List[str]:
+        """Parse comma-separated origins string into list"""
+        origins = [origin.strip() for origin in self._allowed_origins_str.split(',') if origin.strip()]
+        return origins if origins else ["http://localhost:3000"]
+    
+    @computed_field
+    @property
+    def ALLOWED_HOSTS(self) -> List[str]:
+        """Parse comma-separated hosts string into list"""
+        hosts = [host.strip() for host in self._allowed_hosts_str.split(',') if host.strip()]
+        return hosts if hosts else ["localhost"]
     
     # Notifications
     SENDGRID_API_KEY: str = ""
@@ -79,9 +110,15 @@ class Settings(BaseSettings):
     MAGIC_LINK_EXPIRE_MINUTES: int = 15
     MAGIC_LINK_BASE_URL: str = "http://localhost:3000"
     
+    # Scraper Configuration
+    SCRAPER_PAGE_LOAD_TIMEOUT: int = 30
+    SCRAPER_ELEMENT_WAIT_TIMEOUT: int = 10
+    SCRAPER_IMPLICIT_WAIT: int = 5
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
+        populate_by_name = True  # Allow both field name and alias
 
 # Create global settings instance
 settings = Settings()
