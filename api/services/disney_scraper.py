@@ -127,20 +127,49 @@ class DisneyWebScraper:
             
             # Setup driver - use Chromium for ARM64 compatibility
             try:
-                # Try Chrome first
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                logger.info("Chrome driver setup completed")
-            except Exception as chrome_error:
-                logger.warning(f"Chrome setup failed: {chrome_error}, trying Chromium")
-                try:
-                    # Fallback to Chromium
-                    chrome_options.binary_location = "/usr/bin/chromium"
-                    service = Service("/usr/bin/chromedriver")
+                # 1. Try environment variables for path overrides
+                import os
+                chrome_bin = os.environ.get('CHROME_BIN')
+                chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
+                
+                if chrome_bin:
+                    logger.info(f"Using custom Chrome binary: {chrome_bin}")
+                    chrome_options.binary_location = chrome_bin
+                
+                if chromedriver_path:
+                    logger.info(f"Using custom Chromedriver: {chromedriver_path}")
+                    service = Service(chromedriver_path)
                     self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                    logger.info("Chromium driver setup completed")
+                    logger.info("Custom driver setup completed")
+                
+                # 2. Try Standard Chrome
+                elif not chrome_bin:
+                    logger.info("Trying standard Chrome setup")
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    logger.info("Chrome driver setup completed")
+
+            except Exception as chrome_error:
+                logger.warning(f"Standard Chrome setup failed: {chrome_error}, trying Chromium fallbacks")
+                try:
+                    # 3. Fallback to common Chromium paths (Linux/Fly.io)
+                    chromium_paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
+                    driver_paths = ["/usr/bin/chromedriver", "/usr/lib/chromium-browser/chromedriver"]
+                    
+                    found_bin = next((p for p in chromium_paths if os.path.exists(p)), None)
+                    found_driver = next((p for p in driver_paths if os.path.exists(p)), None)
+                    
+                    if found_bin and found_driver:
+                        logger.info(f"Found Chromium at {found_bin} and driver at {found_driver}")
+                        chrome_options.binary_location = found_bin
+                        service = Service(found_driver)
+                        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                        logger.info("Chromium driver setup completed")
+                    else:
+                        raise WebDriverException("Could not find Chromium or Chromedriver binaries")
+                        
                 except Exception as chromium_error:
-                    logger.error(f"Both Chrome and Chromium setup failed: {chromium_error}")
+                    logger.error(f"All driver setup attempts failed. Last error: {chromium_error}")
                     raise
             
             # Execute script to remove webdriver property
@@ -451,6 +480,22 @@ class DisneyWebScraper:
         """
         try:
             restaurant_id = alert_data.get('restaurant_id', '')
+            
+            # If restaurant_id looks like a name (contains spaces or no digits/dashes), try to search for it
+            # Simple heuristic: Disney IDs are usually slug-like (e.g. "be-our-guest-restaurant")
+            # Names are usually "Be Our Guest Restaurant"
+            if ' ' in restaurant_id or not re.match(r'^[a-z0-9-]+$', restaurant_id):
+                logger.info(f"Restaurant ID '{restaurant_id}' looks like a name, searching for ID...")
+                results = await self.search_restaurant(restaurant_id)
+                if results:
+                    # Use the first result's ID
+                    new_id = results[0].disney_id
+                    logger.info(f"Resolved '{restaurant_id}' to ID '{new_id}'")
+                    restaurant_id = new_id
+                else:
+                    logger.warning(f"Could not resolve restaurant name '{restaurant_id}' to an ID")
+                    # Continue with original ID in case it works or to fail gracefully
+            
             date_str = alert_data.get('date', '')
             party_size = alert_data.get('party_size', 1)
             time_str = alert_data.get('time', '')

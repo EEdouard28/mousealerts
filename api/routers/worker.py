@@ -23,12 +23,7 @@ import logging
 from db import get_db
 from deps import get_current_active_user
 from models.user import User
-from services.alert_monitor import (
-    start_alert_monitor, 
-    check_single_alert, 
-    expire_old_alerts, 
-    get_monitoring_stats
-)
+from services.scraping_monitor import start_scraping_monitor, check_single_alert_with_scraping
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -73,15 +68,17 @@ async def start_monitoring(
         )
     
     try:
-        # Start monitoring in background
-        background_tasks.add_task(start_alert_monitor, db, use_mock_api=True)
+        # Start monitoring in background using REAL scraping
+        # We default to headless=True for production background tasks
+        background_tasks.add_task(start_scraping_monitor, db, headless=True)
         monitoring_status = "running"
         
-        logger.info("Alert monitoring started")
+        logger.info("Alert monitoring started (using REAL scraping)")
         
         return {
             "message": "Alert monitoring started successfully",
-            "status": "running"
+            "status": "running",
+            "mode": "scraping"
         }
         
     except Exception as e:
@@ -204,14 +201,15 @@ async def check_specific_alert(
                 detail="Alert not found"
             )
         
-        # Check alert in background
-        background_tasks.add_task(check_single_alert, alert_id, db, use_mock_api=True)
+        # Check alert in background using REAL scraping
+        background_tasks.add_task(check_single_alert_with_scraping, alert_id, db, headless=True)
         
-        logger.info(f"Alert check initiated for {alert_id}")
+        logger.info(f"Alert check initiated for {alert_id} (using scraping)")
         
         return {
             "message": f"Alert {alert_id} check initiated",
-            "alert_id": alert_id
+            "alert_id": alert_id,
+            "mode": "scraping"
         }
         
     except HTTPException:
