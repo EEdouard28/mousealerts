@@ -12,13 +12,15 @@ Features:
 - Permission-based access control
 """
 
-from fastapi import HTTPException, status, Request
+from fastapi import HTTPException, status, Request, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
 from datetime import datetime, timedelta
 
 from db import get_db
+from deps import get_current_active_user
+from models.user import User
 from services.admin_service import AdminService
 from config_admin import admin_config
 
@@ -135,3 +137,13 @@ def require_billing_access(user_id: str, request: Request):
 def require_super_admin(user_id: str, request: Request):
     """FastAPI dependency for super admin access"""
     admin_auth.require_super_admin(user_id, request)
+
+def verify_admin_access(current_user: User = Depends(get_current_active_user)):
+    """FastAPI dependency to verify admin access - returns user if admin, raises exception otherwise"""
+    # Simple admin check - user email must be in admin list
+    if current_user.email not in ["admin@mousealerts.app"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
