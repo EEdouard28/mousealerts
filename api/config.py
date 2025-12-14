@@ -128,6 +128,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
         populate_by_name = True  # Allow both field name and alias
+        extra = "ignore"  # Ignore extra environment variables (like NEXT_PUBLIC_API_BASE, NEXTAUTH_SECRET)
 
 # Create global settings instance
 settings = Settings()
