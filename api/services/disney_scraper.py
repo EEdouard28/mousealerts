@@ -146,9 +146,9 @@ class DisneyWebScraper:
                 # 2. Try Standard Chrome
                 elif not chrome_bin:
                     logger.info("Trying standard Chrome setup")
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                logger.info("Chrome driver setup completed")
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    logger.info("Chrome driver setup completed")
 
             except Exception as chrome_error:
                 logger.warning(f"Standard Chrome setup failed: {chrome_error}, trying Chromium fallbacks")
@@ -164,8 +164,8 @@ class DisneyWebScraper:
                         logger.info(f"Found Chromium at {found_bin} and driver at {found_driver}")
                         chrome_options.binary_location = found_bin
                         service = Service(found_driver)
-                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                    logger.info("Chromium driver setup completed")
+                        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                        logger.info("Chromium driver setup completed")
                     else:
                         raise WebDriverException("Could not find Chromium or Chromedriver binaries")
                         
