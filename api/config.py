@@ -45,16 +45,16 @@ class Settings(BaseSettings):
         return self
     
     # CORS - Store as string to avoid JSON parsing issues, use Field alias for env var mapping
-    _allowed_origins_str: str = Field(
+    allowed_origins_str: str = Field(
         default="http://localhost:3000,http://localhost:3001",
         alias="ALLOWED_ORIGINS"
     )
-    _allowed_hosts_str: str = Field(
+    allowed_hosts_str: str = Field(
         default="localhost,127.0.0.1",
         alias="ALLOWED_HOSTS"
     )
     
-    @field_validator('_allowed_origins_str', mode='before')
+    @field_validator('allowed_origins_str', mode='before')
     @classmethod
     def parse_origins_input(cls, v):
         """Handle both string and list inputs for ALLOWED_ORIGINS"""
@@ -64,7 +64,7 @@ class Settings(BaseSettings):
             return v
         return "http://localhost:3000"
     
-    @field_validator('_allowed_hosts_str', mode='before')
+    @field_validator('allowed_hosts_str', mode='before')
     @classmethod
     def parse_hosts_input(cls, v):
         """Handle both string and list inputs for ALLOWED_HOSTS"""
@@ -78,14 +78,14 @@ class Settings(BaseSettings):
     @property
     def ALLOWED_ORIGINS(self) -> List[str]:
         """Parse comma-separated origins string into list"""
-        origins = [origin.strip() for origin in self._allowed_origins_str.split(',') if origin.strip()]
+        origins = [origin.strip() for origin in self.allowed_origins_str.split(',') if origin.strip()]
         return origins if origins else ["http://localhost:3000"]
     
     @computed_field
     @property
     def ALLOWED_HOSTS(self) -> List[str]:
         """Parse comma-separated hosts string into list"""
-        hosts = [host.strip() for host in self._allowed_hosts_str.split(',') if host.strip()]
+        hosts = [host.strip() for host in self.allowed_hosts_str.split(',') if host.strip()]
         return hosts if hosts else ["localhost"]
     
     # Notifications
