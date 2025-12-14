@@ -19,18 +19,9 @@ from contextlib import contextmanager
 from config import settings
 
 # Create database engine
-# Ensure DATABASE_URL uses postgresql:// (SQLAlchemy will use psycopg2)
-# If using psycopg3, use postgresql+psycopg:// instead
-database_url = settings.DATABASE_URL
-if database_url.startswith('postgresql://') and 'psycopg' not in database_url:
-    # SQLAlchemy 2.0 with psycopg2-binary uses postgresql://
-    pass  # Already correct format
-elif database_url.startswith('postgresql+psycopg://'):
-    # Using psycopg3, keep as is
-    pass
-
+# Using psycopg2-binary which works with standard postgresql:// URLs
 engine = create_engine(
-    database_url,
+    settings.DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=300,
     pool_size=10,
