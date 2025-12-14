@@ -9,7 +9,8 @@ from typing import List, Dict, Any
 from db import get_db
 from middleware.admin_auth import verify_admin_access
 from models.user import User
-from models.plan import Plan, Subscription
+from models.plan import Plan
+from models.subscription import Subscription
 from models.alert import Alert
 from models.notification import Notification
 from models.watcher_run import WatcherRun
