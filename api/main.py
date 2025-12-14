@@ -27,10 +27,10 @@ from routers import auth, alerts, admin, nlu, push, billing, worker, scraping_wo
 logger = logging.getLogger(__name__)
 
 # Initialize Sentry
-if settings.APP_ENV == "production":
+if settings.APP_ENV == "production" and settings.SENTRY_DSN:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
-        integrations=[FastApiIntegration(auto_enabling_instrumentations=False)],
+        integrations=[FastApiIntegration()],
         traces_sample_rate=0.1,
     )
 
