@@ -65,14 +65,30 @@ async def send_magic_link(
         user_agent=http_request.headers.get("user-agent")
     )
     
-    # Send SMS
+    # Send SMS (gracefully handle failures for testing/demo)
     sms_sent = sms_service.send_magic_link_sms(request.phone, magic_token.token)
     
+    # If SMS fails but we're in testing mode (no Twilio configured), still return success
+    # The magic link token is created and can be used for testing
     if not sms_sent:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send SMS. Please try again."
-        )
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"SMS sending failed for {request.phone}, but token was created")
+        
+        # Check if Twilio is configured
+        if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
+            # In testing mode without Twilio, return success with a note
+            return MagicLinkResponse(
+                success=True,
+                message=f"Magic link created (SMS not configured - use token: {magic_token.token})",
+                expires_in_minutes=15
+            )
+        else:
+            # Twilio is configured but failed - return error
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send SMS. Please try again."
+            )
     
     return MagicLinkResponse(
         success=True,

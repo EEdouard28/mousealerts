@@ -8,6 +8,7 @@ Includes rate limiting, message templates, and error handling.
 import os
 import secrets
 import string
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from twilio.rest import Client
@@ -17,6 +18,7 @@ from models.magic_link_token import MagicLinkToken
 from config import Settings
 
 settings = Settings()
+logger = logging.getLogger(__name__)
 
 class SMSService:
     """Service for sending SMS messages via Twilio"""
@@ -75,12 +77,18 @@ class SMSService:
     def send_magic_link_sms(self, phone: str, token: str) -> bool:
         """Send magic link SMS via Twilio"""
         try:
-            # If no client (testing mode), return True
+            # If no client (testing mode), log and return True for demo purposes
             if self.client is None:
+                logger.warning("Twilio client not initialized - SMS not sent (testing mode)")
                 return True
                 
-            # Construct magic link URL
-            base_url = os.getenv("NEXT_PUBLIC_API_BASE", "http://localhost:3000")
+            # Check if Twilio credentials are configured
+            if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
+                logger.warning("Twilio credentials not configured - SMS not sent")
+                return True  # Return True to allow magic link creation for testing
+                
+            # Construct magic link URL using frontend base URL
+            base_url = settings.MAGIC_LINK_BASE_URL
             magic_link = f"{base_url}/auth/verify?token={token}"
             
             # SMS message template
