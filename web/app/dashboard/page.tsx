@@ -60,55 +60,61 @@ export default function DashboardPage() {
     }
   }, [user, isLoading]);
 
-  // Mock data for demonstration
+  // Fetch alerts from API
   useEffect(() => {
-    // Simulate loading alerts
-    setTimeout(() => {
-      setAlerts([
-        {
-          id: 1,
-          restaurant: 'Be Our Guest Restaurant',
-          park: 'Magic Kingdom',
-          date: '2024-01-15',
-          time: '7:00 PM',
-          partySize: 4,
-          status: 'active',
-          created: '2 days ago'
-        },
-        {
-          id: 2,
-          restaurant: 'Cinderella\'s Royal Table',
-          park: 'Magic Kingdom',
-          date: '2024-01-20',
-          time: '6:30 PM',
-          partySize: 2,
-          status: 'active',
-          created: '1 week ago'
-        },
-        {
-          id: 3,
-          restaurant: 'California Grill',
-          park: 'Contemporary Resort',
-          date: '2024-01-25',
-          time: '9:00 PM',
-          partySize: 2,
-          status: 'active',
-          created: '3 days ago'
-        },
-        {
-          id: 4,
-          restaurant: 'Ohana',
-          park: 'Polynesian Resort',
-          date: '2024-01-18',
-          time: '5:30 PM',
-          partySize: 4,
-          status: 'active',
-          created: '5 days ago'
+    const fetchAlerts = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const authToken = localStorage.getItem('auth_token');
+        if (!authToken) {
+          setIsLoading(false);
+          return;
         }
-      ]);
-      setIsLoading(false);
-    }, 1000);
-  }, []);
+
+        const response = await fetch('/api/alerts', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Transform API response to match frontend format
+          const transformedAlerts = data.map((alert: any) => ({
+            id: alert.id,
+            restaurant: alert.venue, // API uses 'venue', frontend expects 'restaurant'
+            park: alert.park,
+            date: new Date(alert.date).toISOString().split('T')[0],
+            time: `${alert.time_start} - ${alert.time_end}`,
+            partySize: alert.party_size,
+            status: alert.status,
+            created: new Date(alert.created_at).toLocaleDateString()
+          }));
+          setAlerts(transformedAlerts);
+        } else {
+          console.error('Failed to fetch alerts:', response.status);
+          // If unauthorized, user might need to re-login
+          if (response.status === 401) {
+            toast.error('Please log in again');
+            router.push('/auth/login');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching alerts:', error);
+        toast.error('Failed to load alerts');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAlerts();
+  }, [user, router]);
 
   const handleLogout = async () => {
     try {
