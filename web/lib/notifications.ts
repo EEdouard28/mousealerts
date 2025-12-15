@@ -13,6 +13,13 @@ import React from 'react';
  * - Background sync support
  */
 
+// Type declaration for Next.js environment variables
+declare const process: {
+  env: {
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY?: string;
+  };
+};
+
 // Use native PushSubscription type
 
 export interface NotificationPermission {
@@ -26,8 +33,11 @@ class NotificationService {
   private isSupported: boolean;
 
   constructor() {
-    this.vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
-    this.isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+    // Access Next.js environment variable - these are replaced at build time
+    // Using type assertion since Next.js handles process.env replacement
+    const env = typeof process !== 'undefined' ? (process as any).env : {};
+    this.vapidPublicKey = env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+    this.isSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
   }
 
   /**
@@ -154,8 +164,14 @@ class NotificationService {
         body: JSON.stringify({
           endpoint: subscription.endpoint,
           keys: {
-            p256dh: subscription.getKey ? Array.from(new Uint8Array(subscription.getKey('p256dh'))) : null,
-            auth: subscription.getKey ? Array.from(new Uint8Array(subscription.getKey('auth'))) : null,
+            p256dh: subscription.getKey ? (() => {
+              const key = subscription.getKey('p256dh');
+              return key ? Array.from(new Uint8Array(key)) : null;
+            })() : null,
+            auth: subscription.getKey ? (() => {
+              const key = subscription.getKey('auth');
+              return key ? Array.from(new Uint8Array(key)) : null;
+            })() : null,
           }
         })
       });
