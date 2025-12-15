@@ -156,3 +156,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Environment variable documentation (may contain sensitive info)
+RENDER_ENV_VARS.md

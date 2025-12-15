@@ -142,12 +142,22 @@ class NotificationService {
    */
   private async sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
     try {
+      // Get auth token from localStorage
+      const authToken = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/notifications/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
         },
-        body: JSON.stringify(subscription)
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.getKey ? Array.from(new Uint8Array(subscription.getKey('p256dh'))) : null,
+            auth: subscription.getKey ? Array.from(new Uint8Array(subscription.getKey('auth'))) : null,
+          }
+        })
       });
 
       if (!response.ok) {
@@ -164,12 +174,15 @@ class NotificationService {
    */
   private async removeSubscriptionFromServer(subscription: PushSubscription): Promise<void> {
     try {
+      // Get auth token from localStorage
+      const authToken = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/notifications/unsubscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(subscription)
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+        }
       });
 
       if (!response.ok) {
