@@ -184,8 +184,11 @@ class AlertMonitor:
             # Prepare notification message
             message = self._prepare_notification_message(alert, available_slots)
             
+            # Get notification channels from alert.channels JSON field
+            channels = alert.channels or {}
+            
             # Send SMS if enabled
-            if alert.notifications_sms and user.phone:
+            if channels.get('sms', False) and user.phone:
                 await self.sms_service.send_alert_notification(
                     phone=user.phone,
                     message=message
@@ -193,16 +196,16 @@ class AlertMonitor:
                 logger.info(f"Sent SMS notification to {user.phone}")
             
             # Send email if enabled
-            if alert.notifications_email and user.email:
+            if channels.get('email', False) and user.email:
                 await self.email_service.send_alert_notification(
                     email=user.email,
-                    subject=f"Disney Dining Alert: {alert.restaurant}",
+                    subject=f"Disney Dining Alert: {alert.venue}",
                     message=message
                 )
                 logger.info(f"Sent email notification to {user.email}")
             
             # Send push notification if enabled
-            if alert.notifications_push:
+            if channels.get('push', False):
                 await self.push_service.send_alert_notification(
                     user_id=user.id,
                     title="Disney Dining Alert",
