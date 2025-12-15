@@ -86,7 +86,17 @@ export default function DashboardPage() {
         if (response.ok) {
           const data = await response.json();
           // Transform API response to match frontend format
-          const transformedAlerts = data.map((alert: any) => {
+          const transformedAlerts = data.map((alert: {
+            id: string;
+            venue?: string;
+            park?: string;
+            date?: string;
+            time_start?: string;
+            time_end?: string;
+            party_size?: number;
+            status?: string;
+            created_at?: string;
+          }) => {
             // Handle date formatting - API returns datetime string
             const alertDate = alert.date ? new Date(alert.date) : null;
             const dateStr = alertDate ? alertDate.toISOString().split('T')[0] : '';
@@ -156,7 +166,7 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
-      <PlanProvider>
+      {<PlanProvider>
         <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
@@ -341,7 +351,16 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {alerts.map((alert) => (
+                {alerts.map((alert: {
+                  id: string;
+                  restaurant: string;
+                  park: string;
+                  date: string;
+                  time: string;
+                  partySize: number;
+                  status: string;
+                  created: string;
+                }) => (
                   <div key={alert.id} className="card p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -401,7 +420,7 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
-      </PlanProvider>
+      </PlanProvider>}
     </ProtectedRoute>
   );
 }
