@@ -86,16 +86,27 @@ export default function DashboardPage() {
         if (response.ok) {
           const data = await response.json();
           // Transform API response to match frontend format
-          const transformedAlerts = data.map((alert: any) => ({
-            id: alert.id,
-            restaurant: alert.venue, // API uses 'venue', frontend expects 'restaurant'
-            park: alert.park,
-            date: new Date(alert.date).toISOString().split('T')[0],
-            time: `${alert.time_start} - ${alert.time_end}`,
-            partySize: alert.party_size,
-            status: alert.status,
-            created: new Date(alert.created_at).toLocaleDateString()
-          }));
+          const transformedAlerts = data.map((alert: any) => {
+            // Handle date formatting - API returns datetime string
+            const alertDate = alert.date ? new Date(alert.date) : null;
+            const dateStr = alertDate ? alertDate.toISOString().split('T')[0] : '';
+            
+            // Format time range
+            const timeStr = alert.time_start && alert.time_end 
+              ? `${alert.time_start} - ${alert.time_end}`
+              : alert.time_start || 'Any time';
+            
+            return {
+              id: alert.id,
+              restaurant: alert.venue || 'Unknown Restaurant', // API uses 'venue', frontend expects 'restaurant'
+              park: alert.park || 'Unknown Park',
+              date: dateStr,
+              time: timeStr,
+              partySize: alert.party_size || 2,
+              status: alert.status || 'active',
+              created: alert.created_at ? new Date(alert.created_at).toLocaleDateString() : 'Recently'
+            };
+          });
           setAlerts(transformedAlerts);
         } else {
           console.error('Failed to fetch alerts:', response.status);
