@@ -20,12 +20,25 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   async rewrites() {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+    
+    // If NEXT_PUBLIC_API_BASE is set, use it for rewrites
+    if (apiBase) {
+      return [
+        {
+          source: '/api/:path*',
+          destination: `${apiBase}/api/:path*`,
+        },
+      ];
+    }
+    
+    // Fallback to Docker internal service name for local development
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_BASE || 'http://api:8000'}/api/:path*`,
+        destination: 'http://api:8000/api/:path*',
       },
-    ]
+    ];
   },
   async headers() {
     return [
