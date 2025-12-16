@@ -66,7 +66,21 @@ async def send_magic_link(
     )
     
     # Send SMS (gracefully handle failures for testing/demo)
+    # #region agent log
+    import json
+    from datetime import datetime
+    try:
+        with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B,C","location":"auth.py:send_magic_link","message":"Before calling send_magic_link_sms","data":{"phone":request.phone,"has_twilio_sid":bool(settings.TWILIO_ACCOUNT_SID),"has_twilio_token":bool(settings.TWILIO_AUTH_TOKEN)},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+    except: pass
+    # #endregion
     sms_sent = sms_service.send_magic_link_sms(request.phone, magic_token.token)
+    # #region agent log
+    try:
+        with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B,C","location":"auth.py:send_magic_link","message":"After calling send_magic_link_sms","data":{"sms_sent":sms_sent},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+    except: pass
+    # #endregion
     
     # If SMS fails but we're in testing mode (no Twilio configured), still return success
     # The magic link token is created and can be used for testing
@@ -74,6 +88,12 @@ async def send_magic_link(
         import logging
         logger = logging.getLogger(__name__)
         logger.warning(f"SMS sending failed for {request.phone}, but token was created")
+        # #region agent log
+        try:
+            with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"auth.py:send_magic_link","message":"SMS sending failed, checking Twilio config","data":{"has_twilio_sid":bool(settings.TWILIO_ACCOUNT_SID),"has_twilio_token":bool(settings.TWILIO_AUTH_TOKEN)},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+        except: pass
+        # #endregion
         
         # Check if Twilio is configured
         if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
@@ -85,6 +105,12 @@ async def send_magic_link(
             )
         else:
             # Twilio is configured but failed - return error
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B,C","location":"auth.py:send_magic_link","message":"Raising HTTPException - Twilio configured but SMS failed","data":{},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to send SMS. Please try again."

@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
@@ -42,36 +42,6 @@ export default function ProtectedRoute({
         <div className="text-center">
           <div className="loading-spinner mx-auto mb-4 w-6 h-6" />
           <p className="text-gray-600">Loading...</p>
-          <div className="mt-4">
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                console.log('Button clicked - setting up mock user');
-                
-                // Set up mock user for testing
-                const mockUser = {
-                  id: 'mock-user-123',
-                  phone: '+15551234567',
-                  email: 'test@mousealerts.com',
-                  plan: 'free',
-                  created_at: new Date().toISOString(),
-                };
-                
-                try {
-                  localStorage.setItem('auth_token', 'mock-jwt-token-123');
-                  localStorage.setItem('user', JSON.stringify(mockUser));
-                  console.log('Mock user set up, reloading page...');
-                  window.location.reload();
-                } catch (error) {
-                  console.error('Error setting up mock user:', error);
-                }
-              }}
-              className="btn btn-primary btn-sm"
-              style={{ cursor: 'pointer' }}
-            >
-              Set Up Mock User for Testing
-            </button>
-          </div>
         </div>
       </div>
     );

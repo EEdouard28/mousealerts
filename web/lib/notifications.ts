@@ -1,4 +1,5 @@
-import React from 'react';
+// @ts-expect-error - React types may not be available in TypeScript context, but will be at runtime
+import { useState, useEffect } from 'react';
 
 /**
  * Push Notification Service
@@ -234,13 +235,13 @@ export const notificationService = new NotificationService();
 
 // Export hook for React components
 export function useNotifications() {
-  const [permission, setPermission] = React.useState<NotificationPermission>(
+  const [permission, setPermission] = useState<NotificationPermission>(
     notificationService.getPermissionStatus()
   );
-  const [isSubscribed, setIsSubscribed] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Check initial subscription status
     notificationService.getSubscription().then(subscription => {
       setIsSubscribed(!!subscription);

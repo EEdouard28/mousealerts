@@ -44,98 +44,98 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateAlert, setShowCreateAlert] = useState(false);
 
-  // For testing: Set up mock user if not authenticated
-  useEffect(() => {
-    if (!user && !isLoading) {
-      const mockUser = {
-        id: 'mock-user-123',
-        phone: '+15551234567',
-        email: 'test@mousealerts.com',
-        plan: 'free',
-        created_at: new Date().toISOString(),
-      };
-      localStorage.setItem('auth_token', 'mock-jwt-token-123');
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      window.location.reload();
-    }
-  }, [user, isLoading]);
+  // Note: Mock user setup removed - users must authenticate via magic link
+  // Mock tokens don't work with the backend JWT validation
 
   // Fetch alerts from API
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      if (!user) {
+  const fetchAlerts = async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const authToken = localStorage.getItem('auth_token');
+      if (!authToken) {
         setIsLoading(false);
         return;
       }
 
-      try {
-        const authToken = localStorage.getItem('auth_token');
-        if (!authToken) {
-          setIsLoading(false);
-          return;
+      const response = await fetch('/api/alerts', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
         }
+      });
 
-        const response = await fetch('/api/alerts', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          }
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched alerts:', data); // Debug log
+        // Transform API response to match frontend format
+        const transformedAlerts = data.map((alert: {
+          id: string;
+          venue?: string;
+          park?: string;
+          date?: string;
+          time_start?: string;
+          time_end?: string;
+          party_size?: number;
+          status?: string;
+          created_at?: string;
+        }) => {
+          // Handle date formatting - API returns datetime string
+          const alertDate = alert.date ? new Date(alert.date) : null;
+          const dateStr = alertDate ? alertDate.toISOString().split('T')[0] : '';
+          
+          // Format time range
+          const timeStr = alert.time_start && alert.time_end 
+            ? `${alert.time_start} - ${alert.time_end}`
+            : alert.time_start || 'Any time';
+          
+          return {
+            id: alert.id,
+            restaurant: alert.venue || 'Unknown Restaurant', // API uses 'venue', frontend expects 'restaurant'
+            park: alert.park || 'Unknown Park',
+            date: dateStr,
+            time: timeStr,
+            partySize: alert.party_size || 2,
+            status: alert.status || 'active',
+            created: alert.created_at ? new Date(alert.created_at).toLocaleDateString() : 'Recently'
+          };
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          // Transform API response to match frontend format
-          const transformedAlerts = data.map((alert: {
-            id: string;
-            venue?: string;
-            park?: string;
-            date?: string;
-            time_start?: string;
-            time_end?: string;
-            party_size?: number;
-            status?: string;
-            created_at?: string;
-          }) => {
-            // Handle date formatting - API returns datetime string
-            const alertDate = alert.date ? new Date(alert.date) : null;
-            const dateStr = alertDate ? alertDate.toISOString().split('T')[0] : '';
-            
-            // Format time range
-            const timeStr = alert.time_start && alert.time_end 
-              ? `${alert.time_start} - ${alert.time_end}`
-              : alert.time_start || 'Any time';
-            
-            return {
-              id: alert.id,
-              restaurant: alert.venue || 'Unknown Restaurant', // API uses 'venue', frontend expects 'restaurant'
-              park: alert.park || 'Unknown Park',
-              date: dateStr,
-              time: timeStr,
-              partySize: alert.party_size || 2,
-              status: alert.status || 'active',
-              created: alert.created_at ? new Date(alert.created_at).toLocaleDateString() : 'Recently'
-            };
-          });
-          setAlerts(transformedAlerts);
-        } else {
-          console.error('Failed to fetch alerts:', response.status);
-          // If unauthorized, user might need to re-login
-          if (response.status === 401) {
-            toast.error('Please log in again');
-            router.push('/auth/login');
-          }
+        setAlerts(transformedAlerts);
+      } else {
+        console.error('Failed to fetch alerts:', response.status, await response.text());
+        // If unauthorized, user might need to re-login
+        if (response.status === 401) {
+          toast.error('Please log in again');
+          router.push('/auth/login');
         }
-      } catch (error) {
-        console.error('Error fetching alerts:', error);
-        toast.error('Failed to load alerts');
-      } finally {
-        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      toast.error('Failed to load alerts');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlerts();
+  }, [user, router]);
+
+  // Refetch alerts when page becomes visible (e.g., returning from alert creation)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchAlerts();
       }
     };
 
-    fetchAlerts();
-  }, [user, router]);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -150,18 +150,10 @@ export default function DashboardPage() {
     router.push('/alerts/create');
   };
 
-  // For testing: Show dashboard directly if no user
+  // Redirect to login if not authenticated
   if (!user && !isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
-        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="loading-spinner mx-auto mb-4 w-6 h-6" />
-            <p className="text-gray-600">Setting up mock user...</p>
-          </div>
-        </div>
-      </div>
-    );
+    router.push('/auth/login');
+    return null;
   }
 
   return (

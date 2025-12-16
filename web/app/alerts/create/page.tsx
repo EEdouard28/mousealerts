@@ -340,8 +340,12 @@ export default function CreateAlertPage() {
       const data = await response.json();
 
       if (response.ok) {
+        console.log('Alert created successfully:', data); // Debug log
         toast.success('Alert created successfully! 🎉');
-        router.push('/dashboard');
+        // Small delay to ensure backend has processed the alert
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 500);
       } else {
         if (response.status === 403 && data.detail?.error) {
           toast.error(data.detail.error);

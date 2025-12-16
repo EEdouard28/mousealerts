@@ -24,13 +24,32 @@ class SMSService:
     """Service for sending SMS messages via Twilio"""
     
     def __init__(self):
+        # #region agent log
+        import json
+        try:
+            with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"sms.py:__init__","message":"SMSService init start","data":{"has_account_sid":bool(settings.TWILIO_ACCOUNT_SID),"has_auth_token":bool(settings.TWILIO_AUTH_TOKEN),"has_from_number":bool(settings.TWILIO_FROM_NUMBER)},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+        except: pass
+        # #endregion
         try:
             self.client = Client(
                 settings.TWILIO_ACCOUNT_SID,
                 settings.TWILIO_AUTH_TOKEN
             )
             self.from_number = settings.TWILIO_FROM_NUMBER
-        except Exception:
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"sms.py:__init__","message":"Twilio client initialized successfully","data":{"from_number":self.from_number},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
+        except Exception as e:
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"sms.py:__init__","message":"Twilio client init failed","data":{"error_type":type(e).__name__,"error_msg":str(e)},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             # For testing or when credentials are not available
             self.client = None
             self.from_number = "+1234567890"
@@ -76,39 +95,88 @@ class SMSService:
     
     def send_magic_link_sms(self, phone: str, token: str) -> bool:
         """Send magic link SMS via Twilio"""
+        # #region agent log
+        import json
+        try:
+            with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B,C,D","location":"sms.py:send_magic_link_sms","message":"send_magic_link_sms called","data":{"phone":phone,"has_client":self.client is not None,"has_base_url":bool(settings.MAGIC_LINK_BASE_URL),"base_url":settings.MAGIC_LINK_BASE_URL},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+        except: pass
+        # #endregion
         try:
             # If no client (testing mode), log and return True for demo purposes
             if self.client is None:
                 logger.warning("Twilio client not initialized - SMS not sent (testing mode)")
+                # #region agent log
+                try:
+                    with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                        f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"sms.py:send_magic_link_sms","message":"Client is None, returning True","data":{},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+                except: pass
+                # #endregion
                 return True
                 
             # Check if Twilio credentials are configured
             if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
                 logger.warning("Twilio credentials not configured - SMS not sent")
+                # #region agent log
+                try:
+                    with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                        f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"sms.py:send_magic_link_sms","message":"Twilio credentials not configured","data":{},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+                except: pass
+                # #endregion
                 return True  # Return True to allow magic link creation for testing
                 
             # Construct magic link URL using frontend base URL
             base_url = settings.MAGIC_LINK_BASE_URL
             magic_link = f"{base_url}/auth/verify?token={token}"
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"sms.py:send_magic_link_sms","message":"Magic link constructed","data":{"magic_link":magic_link},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             
             # SMS message template
             message = f"""Your MouseAlerts login link: {magic_link}
 Expires in 15 minutes. Reply STOP to opt out."""
             
             # Send SMS via Twilio
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"sms.py:send_magic_link_sms","message":"Before Twilio API call","data":{"from_number":self.from_number,"to_phone":phone},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             message_obj = self.client.messages.create(
                 body=message,
                 from_=self.from_number,
                 to=phone
             )
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"sms.py:send_magic_link_sms","message":"Twilio API call succeeded","data":{"message_sid":message_obj.sid if message_obj else None},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             
             return message_obj.sid is not None
             
         except TwilioException as e:
             logger.error(f"Twilio SMS error: {e}")
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B,C","location":"sms.py:send_magic_link_sms","message":"TwilioException caught","data":{"error_type":type(e).__name__,"error_code":getattr(e,'code',None),"error_msg":str(e),"error_status":getattr(e,'status',None)},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             return False
         except Exception as e:
             logger.error(f"SMS sending error: {e}")
+            # #region agent log
+            try:
+                with open('/Users/evmacbook/the_edouard_company/mousealerts/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"sms.py:send_magic_link_sms","message":"Generic Exception caught","data":{"error_type":type(e).__name__,"error_msg":str(e)},"timestamp":int(datetime.now().timestamp()*1000)})+'\n')
+            except: pass
+            # #endregion
             return False
     
     def verify_magic_link_token(
